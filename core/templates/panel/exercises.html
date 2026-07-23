@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block title %}Ejercicios · Panel · FitTrack{% endblock %}
+{% block content %}
+
+<header class="px-5 pt-8 pb-4 flex items-center gap-3">
+  <a href="{% url 'panel' %}" class="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 active:scale-95 transition">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+  </a>
+  <div class="flex-1">
+    <h1 class="text-xl font-black tracking-tight">Ejercicios</h1>
+    <p class="text-xs text-zinc-500">{{ exercises|length }} en el catálogo</p>
+  </div>
+  <a href="{% url 'panel_exercise_create' %}"
+     class="rounded-xl bg-lime-400 px-4 py-2.5 text-sm font-bold text-zinc-950 active:scale-95 transition">+ Nuevo</a>
+</header>
+
+{# ---- Filtro por categoria ---- #}
+<div class="px-5">
+  <div class="flex gap-2 overflow-x-auto no-scrollbar pb-2">
+    <a href="{% url 'panel_exercises' %}"
+       class="shrink-0 rounded-xl px-4 py-2 text-sm font-bold transition
+              {% if not selected %}bg-lime-400 text-zinc-950{% else %}bg-zinc-900 border border-zinc-800 text-zinc-400{% endif %}">Todos</a>
+    {% for cat in categories %}
+      <a href="?cat={{ cat.pk }}"
+         class="shrink-0 rounded-xl px-4 py-2 text-sm font-bold transition
+                {% if selected == cat.pk %}bg-lime-400 text-zinc-950{% else %}bg-zinc-900 border border-zinc-800 text-zinc-400{% endif %}">
+        {{ cat.icon }} {{ cat.name }}
+      </a>
+    {% endfor %}
+  </div>
+</div>
+
+<section class="px-5 mt-3">
+  {% if exercises %}
+    <div class="space-y-3">
+      {% for ex in exercises %}
+      <div class="flex items-center gap-3 rounded-2xl bg-zinc-900 border border-zinc-800 p-3">
+        {% if ex.image %}
+          <img src="{{ ex.image.url }}" alt="{{ ex.title }}" class="w-14 h-14 rounded-xl object-cover bg-zinc-800 shrink-0">
+        {% else %}
+          <div class="w-14 h-14 rounded-xl bg-zinc-800 flex items-center justify-center text-2xl shrink-0">{{ ex.category.icon|default:'💪' }}</div>
+        {% endif %}
+        <div class="flex-1 min-w-0">
+          <p class="font-bold text-sm truncate">{{ ex.title }}</p>
+          <p class="text-xs text-zinc-500 mt-0.5">{{ ex.category.name }}</p>
+        </div>
+        <a href="{% url 'panel_exercise_edit' ex.pk %}"
+           class="rounded-lg bg-zinc-800 px-3 py-2 text-xs font-bold active:scale-95 transition shrink-0">Editar</a>
+        <form action="{% url 'panel_exercise_delete' ex.pk %}" method="post"
+              onsubmit="return confirm('¿Eliminar {{ ex.title|escapejs }} del catálogo?');">
+          {% csrf_token %}
+          <button type="submit" class="rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-xs font-bold text-red-400 active:scale-95 transition">✕</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="rounded-2xl border border-dashed border-zinc-800 p-8 text-center mt-2">
+      <span class="text-4xl">🏋️</span>
+      <p class="font-bold mt-3">Sin ejercicios</p>
+      <p class="text-sm text-zinc-500 mt-1">Crea el primero con el botón "+ Nuevo"</p>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

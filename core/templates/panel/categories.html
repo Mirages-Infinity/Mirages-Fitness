@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block title %}Categorías · Panel · FitTrack{% endblock %}
+{% block content %}
+
+<header class="px-5 pt-8 pb-4 flex items-center gap-3">
+  <a href="{% url 'panel' %}" class="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 active:scale-95 transition">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+  </a>
+  <div class="flex-1">
+    <h1 class="text-xl font-black tracking-tight">Categorías</h1>
+    <p class="text-xs text-zinc-500">{{ categories|length }} en total</p>
+  </div>
+  <a href="{% url 'panel_category_create' %}"
+     class="rounded-xl bg-lime-400 px-4 py-2.5 text-sm font-bold text-zinc-950 active:scale-95 transition">+ Nueva</a>
+</header>
+
+<section class="px-5">
+  {% if categories %}
+    <div class="space-y-3">
+      {% for cat in categories %}
+      <div class="flex items-center gap-3 rounded-2xl bg-zinc-900 border border-zinc-800 p-3.5">
+        <div class="w-11 h-11 rounded-xl bg-zinc-800 flex items-center justify-center text-2xl shrink-0">{{ cat.icon|default:'💪' }}</div>
+        <div class="flex-1 min-w-0">
+          <p class="font-bold text-sm">{{ cat.name }}</p>
+          <p class="text-xs text-zinc-500 mt-0.5">{{ cat.num }} ejercicio{{ cat.num|pluralize }}</p>
+        </div>
+        <a href="{% url 'panel_category_edit' cat.pk %}"
+           class="rounded-lg bg-zinc-800 px-3 py-2 text-xs font-bold active:scale-95 transition">Editar</a>
+        <form action="{% url 'panel_category_delete' cat.pk %}" method="post"
+              onsubmit="return confirm('¿Eliminar {{ cat.name|escapejs }}? Se eliminarán también sus {{ cat.num }} ejercicios.');">
+          {% csrf_token %}
+          <button type="submit" class="rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-xs font-bold text-red-400 active:scale-95 transition">Eliminar</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="rounded-2xl border border-dashed border-zinc-800 p-8 text-center">
+      <span class="text-4xl">🗂️</span>
+      <p class="font-bold mt-3">Sin categorías</p>
+      <p class="text-sm text-zinc-500 mt-1">Crea la primera: Espalda, Pecho, Hombros...</p>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

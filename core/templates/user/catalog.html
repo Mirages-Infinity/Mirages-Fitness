@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block title %}Ejercicios · FitTrack{% endblock %}
+{% block content %}
+
+<header class="px-5 pt-8 pb-4">
+  <h1 class="text-2xl font-black tracking-tight">Catálogo</h1>
+  <p class="text-sm text-zinc-400 mt-1">Elige ejercicios para tu rutina</p>
+</header>
+
+{# ---- Buscador ---- #}
+<div class="px-5">
+  <form method="get" class="relative">
+    {% if selected %}<input type="hidden" name="cat" value="{{ selected }}">{% endif %}
+    <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+    <input type="search" name="q" value="{{ query }}" placeholder="Buscar ejercicio..."
+           class="w-full rounded-xl bg-zinc-900 border border-zinc-800 pl-12 pr-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-lime-400 focus:border-transparent">
+  </form>
+</div>
+
+{# ---- Categorias ---- #}
+<div class="px-5 mt-4">
+  <div class="flex gap-2 overflow-x-auto no-scrollbar pb-2">
+    <a href="{% url 'catalog' %}{% if query %}?q={{ query|urlencode }}{% endif %}"
+       class="shrink-0 rounded-xl px-4 py-2.5 text-sm font-bold transition
+              {% if not selected %}bg-lime-400 text-zinc-950{% else %}bg-zinc-900 border border-zinc-800 text-zinc-400{% endif %}">
+      Todos
+    </a>
+    {% for cat in categories %}
+      <a href="?cat={{ cat.pk }}{% if query %}&q={{ query|urlencode }}{% endif %}"
+         class="shrink-0 rounded-xl px-4 py-2.5 text-sm font-bold transition
+                {% if selected == cat.pk %}bg-lime-400 text-zinc-950{% else %}bg-zinc-900 border border-zinc-800 text-zinc-400{% endif %}">
+        {{ cat.icon }} {{ cat.name }}
+      </a>
+    {% endfor %}
+  </div>
+</div>
+
+{# ---- Lista de ejercicios ---- #}
+<section class="px-5 mt-3">
+  {% if exercises %}
+    <div class="grid grid-cols-2 gap-3">
+      {% for ex in exercises %}
+      <a href="{% url 'exercise_add' ex.pk %}" class="rounded-2xl bg-zinc-900 border border-zinc-800 overflow-hidden active:scale-[.97] transition">
+        {% if ex.image %}
+          <img src="{{ ex.image.url }}" alt="{{ ex.title }}" class="w-full h-28 object-cover bg-zinc-800">
+        {% else %}
+          <div class="w-full h-28 bg-zinc-800 flex items-center justify-center text-4xl">{{ ex.category.icon|default:'💪' }}</div>
+        {% endif %}
+        <div class="p-3">
+          <p class="font-bold text-sm leading-tight">{{ ex.title }}</p>
+          <p class="text-[11px] text-zinc-500 mt-1">{{ ex.category.name }}</p>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="rounded-2xl border border-dashed border-zinc-800 p-8 text-center mt-2">
+      <span class="text-4xl">🔍</span>
+      <p class="font-bold mt-3">No hay ejercicios</p>
+      <p class="text-sm text-zinc-500 mt-1">
+        {% if query or selected %}Prueba con otra búsqueda o categoría{% else %}El administrador aún no cargó ejercicios{% endif %}
+      </p>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

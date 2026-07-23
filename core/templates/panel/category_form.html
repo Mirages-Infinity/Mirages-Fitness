@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}{% if category %}Editar{% else %}Nueva{% endif %} categoría · FitTrack{% endblock %}
+{% block content %}
+
+<header class="px-5 pt-8 pb-4 flex items-center gap-3">
+  <a href="{% url 'panel_categories' %}" class="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 active:scale-95 transition">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+  </a>
+  <h1 class="text-xl font-black tracking-tight">
+    {% if category %}Editar categoría{% else %}Nueva categoría{% endif %}
+  </h1>
+</header>
+
+{% if form.errors %}
+  <div class="mx-5 mb-4 rounded-xl bg-red-500/10 border border-red-500/30 px-4 py-3 text-sm text-red-400">
+    {% for field in form %}{% for error in field.errors %}<p>{{ error }}</p>{% endfor %}{% endfor %}
+  </div>
+{% endif %}
+
+<form method="post" class="px-5 space-y-4">
+  {% csrf_token %}
+  <div>
+    <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Nombre</label>
+    {{ form.name }}
+  </div>
+  <div>
+    <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Icono (emoji)</label>
+    {{ form.icon }}
+  </div>
+  <button type="submit"
+          class="w-full rounded-xl bg-lime-400 py-4 font-black text-zinc-950 active:scale-[.98] transition shadow-lg shadow-lime-400/20">
+    Guardar
+  </button>
+</form>
+{% endblock %}

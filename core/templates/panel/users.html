@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% block title %}Usuarios · Panel · FitTrack{% endblock %}
+{% block content %}
+
+<header class="px-5 pt-8 pb-4 flex items-center gap-3">
+  <a href="{% url 'panel' %}" class="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 active:scale-95 transition">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+  </a>
+  <div>
+    <h1 class="text-xl font-black tracking-tight">Usuarios</h1>
+    <p class="text-xs text-zinc-500">{{ users|length }} registrados</p>
+  </div>
+</header>
+
+<section class="px-5 space-y-3">
+  {% for u in users %}
+  <div class="rounded-2xl bg-zinc-900 border border-zinc-800 p-4 {% if not u.is_active %}opacity-60{% endif %}">
+    <div class="flex items-center gap-3">
+      <div class="w-11 h-11 rounded-full {% if u.is_staff %}bg-lime-400 text-zinc-950{% else %}bg-zinc-800 text-white{% endif %} flex items-center justify-center font-black text-lg shrink-0">
+        {{ u.username|first|upper }}
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="font-bold text-sm truncate">
+          {{ u.username }}
+          {% if u.is_staff %}<span class="ml-1 text-[10px] font-bold uppercase text-lime-400">Admin</span>{% endif %}
+          {% if not u.is_active %}<span class="ml-1 text-[10px] font-bold uppercase text-red-400">Inactivo</span>{% endif %}
+        </p>
+        <p class="text-xs text-zinc-500 mt-0.5">
+          {% if u.profile %}RUT {{ u.profile.rut }} · {% endif %}Desde {{ u.date_joined|date:"j/n/Y" }} · {{ u.num_logs }} registro{{ u.num_logs|pluralize }}
+        </p>
+        {% if not u.is_staff %}
+          {% if u.subscription %}
+            {% if u.subscription.exempt %}
+              <p class="text-[11px] font-bold text-sky-400 mt-1">🎁 Liberado de pago (acceso gratis)</p>
+            {% elif u.subscription.is_active %}
+              <p class="text-[11px] font-bold mt-1 {% if u.subscription.on_trial %}text-amber-400{% else %}text-lime-400{% endif %}">
+                {% if u.subscription.on_trial %}⏳ Prueba{% else %}✅ Suscrito{% endif %} hasta {{ u.subscription.active_until|date:"j/n/Y" }}
+              </p>
+            {% else %}
+              <p class="text-[11px] font-bold text-red-400 mt-1">🔒 Vencida el {{ u.subscription.active_until|date:"j/n/Y" }}</p>
+            {% endif %}
+          {% else %}
+            <p class="text-[11px] font-bold text-zinc-500 mt-1">Sin suscripción</p>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+    {% if u != request.user %}
+    <div class="flex gap-2 mt-3 pt-3 border-t border-zinc-800">
+      {% if not u.is_staff %}
+      <form action="{% url 'panel_user_add_month' u.pk %}" method="post" class="flex-1"
+            onsubmit="return confirm('¿Activar 1 mes de suscripción a {{ u.username|escapejs }}?');">
+        {% csrf_token %}
+        <button type="submit" class="w-full rounded-lg bg-lime-400/10 border border-lime-400/20 px-3 py-2 text-xs font-bold text-lime-400 active:scale-95 transition">
+          +1 mes
+        </button>
+      </form>
+      <form action="{% url 'panel_user_exempt' u.pk %}" method="post" class="flex-1">
+        {% csrf_token %}
+        <button type="submit" class="w-full rounded-lg {% if u.subscription.exempt %}bg-sky-400/20 border border-sky-400/40 text-sky-300{% else %}bg-sky-400/10 border border-sky-400/20 text-sky-400{% endif %} px-3 py-2 text-xs font-bold active:scale-95 transition">
+          {% if u.subscription.exempt %}Quitar gratis{% else %}🎁 Liberar{% endif %}
+        </button>
+      </form>
+      {% endif %}
+      <form action="{% url 'panel_user_toggle' u.pk %}" method="post" class="flex-1">
+        {% csrf_token %}
+        <button type="submit" class="w-full rounded-lg {% if u.is_active %}bg-zinc-800 text-white{% else %}bg-lime-400 text-zinc-950{% endif %} px-3 py-2 text-xs font-bold active:scale-95 transition">
+          {% if u.is_active %}Desactivar{% else %}Activar{% endif %}
+        </button>
+      </form>
+      <form action="{% url 'panel_user_delete' u.pk %}" method="post" class="flex-1"
+            onsubmit="return confirm('¿Eliminar a {{ u.username|escapejs }}? Se borrarán su rutina e historial.');">
+        {% csrf_token %}
+        <button type="submit" class="w-full rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-xs font-bold text-red-400 active:scale-95 transition">
+          Eliminar
+        </button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</section>
+{% endblock %}

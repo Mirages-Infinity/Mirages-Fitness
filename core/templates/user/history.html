@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% block title %}Progreso · FitTrack{% endblock %}
+{% block content %}
+
+<header class="px-5 pt-8 pb-4">
+  <h1 class="text-2xl font-black tracking-tight">Tu progreso</h1>
+  <p class="text-sm text-zinc-400 mt-1">Historial de todos tus entrenamientos</p>
+</header>
+
+{# ---- Progreso por ejercicio ---- #}
+{% if exercises %}
+<section class="px-5 mb-6">
+  <h2 class="text-lg font-bold mb-3">Progreso por ejercicio</h2>
+  <div class="flex gap-2.5 overflow-x-auto no-scrollbar pb-2">
+    {% for ex in exercises %}
+      <a href="{% url 'progress' ex.pk %}" class="shrink-0 w-32 rounded-2xl bg-zinc-900 border border-zinc-800 overflow-hidden active:scale-95 transition">
+        {% if ex.image %}
+          <img src="{{ ex.image.url }}" alt="{{ ex.title }}" class="w-full h-20 object-cover bg-zinc-800">
+        {% else %}
+          <div class="w-full h-20 bg-zinc-800 flex items-center justify-center text-3xl">{{ ex.category.icon|default:'💪' }}</div>
+        {% endif %}
+        <div class="p-2.5">
+          <p class="font-bold text-xs leading-tight truncate">{{ ex.title }}</p>
+          <p class="text-[10px] text-lime-400 font-semibold mt-1">{{ ex.times }} registro{{ ex.times|pluralize }}</p>
+        </div>
+      </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{# ---- Sesiones ---- #}
+<section class="px-5">
+  <h2 class="text-lg font-bold mb-3">Sesiones</h2>
+  {% if sessions %}
+    <div class="space-y-3">
+      {% for s in sessions %}
+      <details class="rounded-2xl bg-zinc-900 border border-zinc-800 overflow-hidden group">
+        <summary class="flex items-center justify-between p-4 cursor-pointer list-none">
+          <div>
+            <p class="font-bold text-sm">{{ s.date|date:"l j \d\e F" }}</p>
+            <p class="text-xs text-zinc-500 mt-0.5">{{ s.logs|length }} ejercicio{{ s.logs|length|pluralize }} · {{ s.total_kg|floatformat:"-1" }} kg totales</p>
+          </div>
+          <svg class="w-5 h-5 text-zinc-500 transition group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+        </summary>
+        <div class="border-t border-zinc-800 divide-y divide-zinc-800/60">
+          {% for log in s.logs %}
+          <div class="flex items-center justify-between px-4 py-3">
+            <div class="min-w-0">
+              <p class="text-sm font-semibold truncate">{{ log.exercise.title }}</p>
+              <p class="text-[11px] text-zinc-500">{{ log.exercise.category.name }}</p>
+            </div>
+            <div class="text-right shrink-0 ml-3">
+              {% if log.exercise.kind == 'cardio' %}
+                <p class="text-sm font-black text-lime-400">{{ log.duration_min|default:"–" }} min</p>
+                {% if log.distance_km %}<p class="text-[11px] text-zinc-500">{{ log.distance_km|floatformat:"-2" }} km</p>{% endif %}
+              {% else %}
+                <p class="text-sm font-black text-lime-400">{{ log.weight|floatformat:"-1" }} kg</p>
+                <p class="text-[11px] text-zinc-500">{{ log.sets }}×{{ log.reps }}</p>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </details>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="rounded-2xl border border-dashed border-zinc-800 p-8 text-center">
+      <span class="text-4xl">📈</span>
+      <p class="font-bold mt-3">Aún no hay registros</p>
+      <p class="text-sm text-zinc-500 mt-1">Completa tu rutina de hoy y presiona "Registrar entrenamiento"</p>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

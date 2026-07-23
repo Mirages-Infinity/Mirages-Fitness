@@ -1,0 +1,101 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#09090b">
+  <title>{% block title %}FitTrack{% endblock %}</title>
+
+  {# ---- PWA ---- #}
+  <link rel="manifest" href="{% static 'manifest.json' %}">
+  <link rel="icon" type="image/png" href="{% static 'icons/icon-192.png' %}">
+  <link rel="apple-touch-icon" href="{% static 'icons/icon-192.png' %}">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FitTrack">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    html { -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Inter', system-ui, sans-serif; }
+    ::-webkit-scrollbar { display: none; }
+    .no-scrollbar { scrollbar-width: none; }
+  </style>
+</head>
+<body class="bg-zinc-950 text-white min-h-screen antialiased">
+  <div class="mx-auto max-w-md min-h-screen flex flex-col relative">
+
+    {# ---- Mensajes flash ---- #}
+    {% if messages %}
+      <div id="toasts" class="fixed top-4 inset-x-0 z-50 mx-auto max-w-md px-4 space-y-2">
+        {% for message in messages %}
+          <div class="toast flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium shadow-lg
+                      {% if message.tags == 'error' %}bg-red-500 text-white{% else %}bg-lime-400 text-zinc-950{% endif %}">
+            {% if message.tags == 'error' %}⚠️{% else %}✅{% endif %} {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+      <script>
+        setTimeout(() => {
+          const t = document.getElementById('toasts');
+          if (t) { t.style.transition = 'opacity .4s'; t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }
+        }, 3000);
+      </script>
+    {% endif %}
+
+    {# ---- Contenido ---- #}
+    <main class="flex-1 {% if user.is_authenticated %}pb-24{% endif %}">
+      {% block content %}{% endblock %}
+    </main>
+
+    {# ---- Navegacion inferior ---- #}
+    {% if user.is_authenticated %}
+    <nav class="fixed bottom-0 inset-x-0 z-40 mx-auto max-w-md border-t border-zinc-800/80 bg-zinc-950/90 backdrop-blur-lg">
+      <div class="flex items-stretch justify-around px-2 pb-[env(safe-area-inset-bottom)]">
+        <a href="{% url 'home' %}" class="flex flex-col items-center gap-1 py-3 px-3 {% if active_tab == 'home' %}text-lime-400{% else %}text-zinc-500{% endif %}">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3m10-11v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+          <span class="text-[10px] font-semibold">Hoy</span>
+        </a>
+        <a href="{% url 'routine' %}" class="flex flex-col items-center gap-1 py-3 px-3 {% if active_tab == 'routine' %}text-lime-400{% else %}text-zinc-500{% endif %}">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          <span class="text-[10px] font-semibold">Rutina</span>
+        </a>
+        <a href="{% url 'catalog' %}" class="flex flex-col items-center gap-1 py-3 px-3 {% if active_tab == 'catalog' %}text-lime-400{% else %}text-zinc-500{% endif %}">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.5 6.5h-2a1 1 0 00-1 1v9a1 1 0 001 1h2m11-11h2a1 1 0 011 1v9a1 1 0 01-1 1h-2m-11-8v7m11-7v7m-11-3.5h11"/></svg>
+          <span class="text-[10px] font-semibold">Ejercicios</span>
+        </a>
+        <a href="{% url 'history' %}" class="flex flex-col items-center gap-1 py-3 px-3 {% if active_tab == 'history' %}text-lime-400{% else %}text-zinc-500{% endif %}">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+          <span class="text-[10px] font-semibold">Progreso</span>
+        </a>
+        {% if user.is_staff %}
+        <a href="{% url 'panel' %}" class="flex flex-col items-center gap-1 py-3 px-3 {% if active_tab == 'panel' %}text-lime-400{% else %}text-zinc-500{% endif %}">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          <span class="text-[10px] font-semibold">Panel</span>
+        </a>
+        {% endif %}
+      </div>
+    </nav>
+    {% endif %}
+  </div>
+
+  {# ---- Registro del service worker (PWA) ---- #}
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+    }
+  </script>
+</body>
+</html>

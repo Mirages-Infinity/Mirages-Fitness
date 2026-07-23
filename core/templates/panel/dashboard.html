@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+{% block title %}Panel · FitTrack{% endblock %}
+{% block content %}
+
+<header class="px-5 pt-8 pb-4">
+  <p class="text-xs font-bold uppercase tracking-wider text-lime-400">Administración</p>
+  <h1 class="text-2xl font-black tracking-tight mt-0.5">Panel de control</h1>
+</header>
+
+{# ---- Estadisticas ---- #}
+<div class="px-5 grid grid-cols-2 gap-3">
+  <div class="rounded-2xl bg-zinc-900 border border-zinc-800 p-4">
+    <span class="text-2xl">🏋️</span>
+    <p class="text-2xl font-black mt-2">{{ stats.exercises }}</p>
+    <p class="text-xs text-zinc-500 font-semibold">Ejercicios</p>
+  </div>
+  <div class="rounded-2xl bg-zinc-900 border border-zinc-800 p-4">
+    <span class="text-2xl">🗂️</span>
+    <p class="text-2xl font-black mt-2">{{ stats.categories }}</p>
+    <p class="text-xs text-zinc-500 font-semibold">Categorías</p>
+  </div>
+  <div class="rounded-2xl bg-zinc-900 border border-zinc-800 p-4">
+    <span class="text-2xl">👥</span>
+    <p class="text-2xl font-black mt-2">{{ stats.users }}</p>
+    <p class="text-xs text-zinc-500 font-semibold">Usuarios</p>
+  </div>
+  <div class="rounded-2xl bg-zinc-900 border border-zinc-800 p-4">
+    <span class="text-2xl">🔥</span>
+    <p class="text-2xl font-black mt-2">{{ stats.logs }}</p>
+    <p class="text-xs text-zinc-500 font-semibold">Entrenamientos</p>
+  </div>
+</div>
+
+{# ---- Accesos ---- #}
+<section class="px-5 mt-6">
+  <h2 class="text-lg font-bold mb-3">Gestión</h2>
+  <div class="space-y-3">
+    <a href="{% url 'panel_exercises' %}" class="flex items-center gap-4 rounded-2xl bg-zinc-900 border border-zinc-800 p-4 active:scale-[.98] transition">
+      <div class="w-12 h-12 rounded-xl bg-lime-400/10 border border-lime-400/20 flex items-center justify-center text-2xl">🏋️</div>
+      <div class="flex-1">
+        <p class="font-bold text-sm">Ejercicios</p>
+        <p class="text-xs text-zinc-500 mt-0.5">Crear, editar y eliminar ejercicios del catálogo</p>
+      </div>
+      <svg class="w-5 h-5 text-zinc-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+    </a>
+    <a href="{% url 'panel_categories' %}" class="flex items-center gap-4 rounded-2xl bg-zinc-900 border border-zinc-800 p-4 active:scale-[.98] transition">
+      <div class="w-12 h-12 rounded-xl bg-lime-400/10 border border-lime-400/20 flex items-center justify-center text-2xl">🗂️</div>
+      <div class="flex-1">
+        <p class="font-bold text-sm">Categorías</p>
+        <p class="text-xs text-zinc-500 mt-0.5">Espalda, Pecho, Hombros, Abdomen...</p>
+      </div>
+      <svg class="w-5 h-5 text-zinc-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+    </a>
+    <a href="{% url 'panel_users' %}" class="flex items-center gap-4 rounded-2xl bg-zinc-900 border border-zinc-800 p-4 active:scale-[.98] transition">
+      <div class="w-12 h-12 rounded-xl bg-lime-400/10 border border-lime-400/20 flex items-center justify-center text-2xl">👥</div>
+      <div class="flex-1">
+        <p class="font-bold text-sm">Usuarios</p>
+        <p class="text-xs text-zinc-500 mt-0.5">Suscripciones, activar o desactivar cuentas</p>
+      </div>
+      <svg class="w-5 h-5 text-zinc-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+    </a>
+    <a href="{% url 'panel_config' %}" class="flex items-center gap-4 rounded-2xl bg-zinc-900 border border-zinc-800 p-4 active:scale-[.98] transition">
+      <div class="w-12 h-12 rounded-xl bg-lime-400/10 border border-lime-400/20 flex items-center justify-center text-2xl">💳</div>
+      <div class="flex-1">
+        <p class="font-bold text-sm">Suscripción y pagos</p>
+        <p class="text-xs text-zinc-500 mt-0.5">Precio mensual, prueba gratis y Mercado Pago</p>
+      </div>
+      <svg class="w-5 h-5 text-zinc-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+    </a>
+  </div>
+</section>
+
+{# ---- Ultimos ejercicios ---- #}
+{% if recent %}
+<section class="px-5 mt-6">
+  <h2 class="text-lg font-bold mb-3">Últimos ejercicios creados</h2>
+  <div class="rounded-2xl bg-zinc-900 border border-zinc-800 divide-y divide-zinc-800/60">
+    {% for ex in recent %}
+    <a href="{% url 'panel_exercise_edit' ex.pk %}" class="flex items-center gap-3 px-4 py-3">
+      {% if ex.image %}
+        <img src="{{ ex.image.url }}" alt="{{ ex.title }}" class="w-10 h-10 rounded-lg object-cover bg-zinc-800">
+      {% else %}
+        <div class="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center text-lg">{{ ex.category.icon|default:'💪' }}</div>
+      {% endif %}
+      <div class="min-w-0">
+        <p class="text-sm font-semibold truncate">{{ ex.title }}</p>
+        <p class="text-[11px] text-zinc-500">{{ ex.category.name }}</p>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}
