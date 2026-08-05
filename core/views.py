@@ -312,6 +312,44 @@ def routine_clear(request):
 
 
 @login_required
+@require_POST
+def routine_bulk_delete(request):
+    """Elimina uno, varios o todos los ejercicios de la rutina."""
+    day = request.POST.get('day') or 0
+    items = RoutineItem.objects.filter(user=request.user)
+
+    single = request.POST.get('single')
+    scope = request.POST.get('scope', 'selected')
+
+    if single:
+        target = items.filter(pk=single)
+    elif scope == 'week':
+        target = items
+    elif scope == 'day':
+        target = items.filter(day=day)
+    else:
+        target = items.filter(pk__in=request.POST.getlist('items'))
+
+    count = target.count()
+    if count:
+        target.delete()
+        if scope == 'week' and not single:
+            messages.success(request, f'Rutina vaciada: {count} ejercicios eliminados.')
+        else:
+            messages.success(
+                request,
+                f'{count} ejercicio{"s" if count != 1 else ""} '
+                f'eliminado{"s" if count != 1 else ""} de tu rutina.',
+            )
+    else:
+        messages.error(request, 'No seleccionaste ningun ejercicio.')
+
+    if scope == 'week' and not single:
+        return redirect('routine')
+    return redirect('routine_day', day=int(day))
+
+
+@login_required
 def profile_settings(request):
     profile = get_profile(request.user)
     form = ProfileForm(request.POST or None, instance=profile)
@@ -337,16 +375,6 @@ def routine_item_edit(request, pk):
     return render(request, 'user/routine_item_form.html', {
         'form': form, 'item': item, 'active_tab': 'routine',
     })
-
-
-@login_required
-@require_POST
-def routine_item_delete(request, pk):
-    item = get_object_or_404(RoutineItem, pk=pk, user=request.user)
-    day = item.day
-    item.delete()
-    messages.success(request, f'{item.exercise.title} eliminado de tu rutina.')
-    return redirect('routine_day', day=day)
 
 
 @login_required
