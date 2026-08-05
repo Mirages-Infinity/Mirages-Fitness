@@ -49,7 +49,9 @@
     <div class="flex gap-2 mt-3 pt-3 border-t border-zinc-800">
       {% if not u.is_staff %}
       <form action="{% url 'panel_user_add_month' u.pk %}" method="post" class="flex-1"
-            onsubmit="return confirm('¿Activar 1 mes de suscripción a {{ u.username|escapejs }}?');">
+            data-confirm="Se le sumarán 30 días de acceso a la plataforma."
+            data-confirm-title="¿Activar 1 mes a {{ u.username }}?"
+            data-confirm-ok="Activar" data-confirm-icon="✅" data-confirm-tone="primary">
         {% csrf_token %}
         <button type="submit" class="w-full rounded-lg bg-lime-400/10 border border-lime-400/20 px-3 py-2 text-xs font-bold text-lime-400 active:scale-95 transition">
           +1 mes
@@ -69,7 +71,8 @@
         </button>
       </form>
       <form action="{% url 'panel_user_delete' u.pk %}" method="post" class="flex-1"
-            onsubmit="return confirm('¿Eliminar a {{ u.username|escapejs }}? Se borrarán su rutina e historial.');">
+            data-confirm="Se borrarán su cuenta, su rutina y todo su historial. Esta acción no se puede deshacer."
+            data-confirm-title="¿Eliminar a {{ u.username }}?">
         {% csrf_token %}
         <button type="submit" class="w-full rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-xs font-bold text-red-400 active:scale-95 transition">
           Eliminar

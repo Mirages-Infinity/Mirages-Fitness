@@ -91,6 +91,109 @@
     {% endif %}
   </div>
 
+  {# ---- Dialogo de confirmacion propio de la app ---- #}
+  <div id="confirmModal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-zinc-950/80 backdrop-blur-sm px-6">
+    <div id="confirmCard"
+         class="w-full max-w-sm rounded-3xl bg-zinc-900 border border-zinc-800 p-6 text-center shadow-2xl
+                translate-y-6 opacity-0 transition-all duration-200 ease-out">
+      <div id="confirmIcon" class="mx-auto w-16 h-16 rounded-2xl flex items-center justify-center text-3xl bg-red-500/10 border border-red-500/20">
+        🗑️
+      </div>
+      <h3 id="confirmTitle" class="text-lg font-black mt-4">¿Estás seguro?</h3>
+      <p id="confirmMsg" class="text-sm text-zinc-400 mt-1.5 leading-relaxed"></p>
+      <div class="grid grid-cols-2 gap-2 mt-6">
+        <button type="button" id="confirmCancel"
+                class="rounded-xl bg-zinc-800 py-3.5 font-bold text-sm active:scale-95 transition">Cancelar</button>
+        <button type="button" id="confirmOk"
+                class="rounded-xl bg-red-500 py-3.5 font-black text-sm text-white active:scale-95 transition">Eliminar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  // Confirmacion con el estilo de la app en vez del confirm() del navegador.
+  // Uso: data-confirm="mensaje" en el <form> o en el boton que lo envia.
+  // Opcionales: data-confirm-title, data-confirm-ok, data-confirm-icon,
+  //             data-confirm-tone="danger|primary"
+  (function () {
+    const modal = document.getElementById('confirmModal');
+    const card = document.getElementById('confirmCard');
+    const iconEl = document.getElementById('confirmIcon');
+    const titleEl = document.getElementById('confirmTitle');
+    const msgEl = document.getElementById('confirmMsg');
+    const okBtn = document.getElementById('confirmOk');
+    const cancelBtn = document.getElementById('confirmCancel');
+    let pending = null;
+
+    const TONES = {
+      danger: {
+        icon: 'bg-red-500/10 border border-red-500/20',
+        ok: 'rounded-xl bg-red-500 py-3.5 font-black text-sm text-white active:scale-95 transition',
+      },
+      primary: {
+        icon: 'bg-lime-400/10 border border-lime-400/20',
+        ok: 'rounded-xl bg-lime-400 py-3.5 font-black text-sm text-zinc-950 active:scale-95 transition',
+      },
+    };
+
+    function open(opts) {
+      const tone = TONES[opts.tone] || TONES.danger;
+      iconEl.textContent = opts.icon;
+      iconEl.className = 'mx-auto w-16 h-16 rounded-2xl flex items-center justify-center text-3xl ' + tone.icon;
+      titleEl.textContent = opts.title;
+      msgEl.textContent = opts.message;
+      okBtn.textContent = opts.ok;
+      okBtn.className = tone.ok;
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      requestAnimationFrame(() => card.classList.remove('translate-y-6', 'opacity-0'));
+      if (navigator.vibrate) navigator.vibrate(15);
+    }
+
+    function close() {
+      card.classList.add('translate-y-6', 'opacity-0');
+      setTimeout(() => {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }, 180);
+      pending = null;
+    }
+
+    document.addEventListener('submit', function (event) {
+      const form = event.target;
+      if (form.dataset.confirmed === '1') {
+        delete form.dataset.confirmed;
+        return;
+      }
+      const source = (event.submitter && event.submitter.dataset.confirm) ? event.submitter : form;
+      const message = source.dataset.confirm;
+      if (!message) return;
+
+      event.preventDefault();
+      pending = { form, submitter: event.submitter };
+      open({
+        message,
+        title: source.dataset.confirmTitle || '¿Estás seguro?',
+        ok: source.dataset.confirmOk || 'Eliminar',
+        icon: source.dataset.confirmIcon || '🗑️',
+        tone: source.dataset.confirmTone || 'danger',
+      });
+    }, true);
+
+    okBtn.addEventListener('click', function () {
+      if (!pending) return;
+      const { form, submitter } = pending;
+      form.dataset.confirmed = '1';
+      close();
+      form.requestSubmit(submitter || undefined);
+    });
+
+    cancelBtn.addEventListener('click', close);
+    modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && pending) close(); });
+  })();
+  </script>
+
   {# ---- Registro del service worker (PWA) ---- #}
   <script>
     if ('serviceWorker' in navigator) {

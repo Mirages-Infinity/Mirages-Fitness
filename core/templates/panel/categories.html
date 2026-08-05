@@ -27,7 +27,8 @@
         <a href="{% url 'panel_category_edit' cat.pk %}"
            class="rounded-lg bg-zinc-800 px-3 py-2 text-xs font-bold active:scale-95 transition">Editar</a>
         <form action="{% url 'panel_category_delete' cat.pk %}" method="post"
-              onsubmit="return confirm('¿Eliminar {{ cat.name|escapejs }}? Se eliminarán también sus {{ cat.num }} ejercicios.');">
+              data-confirm="También se eliminarán sus {{ cat.num }} ejercicio{{ cat.num|pluralize }} del catálogo."
+              data-confirm-title="¿Eliminar {{ cat.name }}?">
           {% csrf_token %}
           <button type="submit" class="rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-xs font-bold text-red-400 active:scale-95 transition">Eliminar</button>
         </form>
