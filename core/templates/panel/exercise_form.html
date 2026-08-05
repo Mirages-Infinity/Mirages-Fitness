@@ -32,6 +32,16 @@
     {{ form.kind }}
     <p class="text-[11px] text-zinc-600 mt-1">Fuerza: el usuario registra kg, series y reps. Cardio (caminar, trotar, correr): registra minutos y km.</p>
   </div>
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Equipamiento</label>
+      {{ form.equipment }}
+    </div>
+    <div>
+      <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Nivel</label>
+      {{ form.level }}
+    </div>
+  </div>
   <div>
     <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Descripción</label>
     {{ form.description }}

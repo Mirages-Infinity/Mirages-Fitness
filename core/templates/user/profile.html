@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{% block title %}Mi perfil · FitTrack{% endblock %}
+{% block content %}
+
+<header class="px-5 pt-8 pb-4">
+  <div class="flex items-center gap-4">
+    <div class="w-16 h-16 rounded-2xl bg-lime-400 flex items-center justify-center text-3xl font-black text-zinc-950 shrink-0">
+      {{ user.username|first|upper }}
+    </div>
+    <div class="min-w-0">
+      <h1 class="text-xl font-black tracking-tight truncate">{{ user.username }}</h1>
+      {% if profile.rut %}<p class="text-xs text-zinc-500 mt-0.5">RUT {{ profile.rut }}</p>{% endif %}
+      {% if user.is_staff %}
+        <span class="inline-block mt-1 text-[10px] font-bold uppercase text-lime-400">Administrador</span>
+      {% endif %}
+    </div>
+  </div>
+</header>
+
+{# ---- Estado de suscripcion ---- #}
+{% if not user.is_staff and sub %}
+<div class="px-5 mb-5">
+  <a href="{% url 'subscription' %}" class="flex items-center justify-between rounded-2xl border px-4 py-3.5
+     {% if sub.exempt %}bg-sky-400/10 border-sky-400/30{% elif sub.on_trial %}bg-amber-400/10 border-amber-400/30{% elif sub.is_active %}bg-lime-400/10 border-lime-400/30{% else %}bg-red-500/10 border-red-500/30{% endif %}">
+    <div>
+      <p class="text-sm font-bold
+         {% if sub.exempt %}text-sky-400{% elif sub.on_trial %}text-amber-400{% elif sub.is_active %}text-lime-400{% else %}text-red-400{% endif %}">
+        {% if sub.exempt %}🎁 Acceso liberado{% elif sub.on_trial %}⏳ Prueba gratis{% elif sub.is_active %}✅ Suscripción activa{% else %}🔒 Suscripción vencida{% endif %}
+      </p>
+      {% if not sub.exempt %}
+        <p class="text-xs text-zinc-400 mt-0.5">
+          {% if sub.is_active %}{{ sub.days_left }} día{{ sub.days_left|pluralize }} restante{{ sub.days_left|pluralize }}{% else %}Renueva para seguir entrenando{% endif %}
+        </p>
+      {% endif %}
+    </div>
+    <svg class="w-5 h-5 text-zinc-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+  </a>
+</div>
+{% endif %}
+
+{# ---- Preferencias de entrenamiento ---- #}
+<form method="post" class="px-5 space-y-4">
+  {% csrf_token %}
+  <h2 class="text-lg font-bold">Preferencias</h2>
+
+  <div>
+    <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Objetivo</label>
+    {{ form.goal }}
+  </div>
+  <div>
+    <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Nivel</label>
+    {{ form.level }}
+  </div>
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Días/semana</label>
+      {{ form.days_per_week }}
+    </div>
+    <div>
+      <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Descanso</label>
+      {{ form.default_rest }}
+    </div>
+  </div>
+  <button type="submit" class="w-full rounded-xl bg-lime-400 py-3.5 font-black text-zinc-950 active:scale-[.98] transition">
+    Guardar preferencias
+  </button>
+</form>
+
+{# ---- Acciones ---- #}
+<section class="px-5 mt-6 space-y-3">
+  <a href="{% url 'plan_wizard' %}" class="flex items-center gap-4 rounded-2xl bg-zinc-900 border border-zinc-800 p-4 active:scale-[.98] transition">
+    <div class="w-11 h-11 rounded-xl bg-lime-400/10 border border-lime-400/20 flex items-center justify-center text-xl">✨</div>
+    <div class="flex-1">
+      <p class="font-bold text-sm">Crear rutina automática</p>
+      <p class="text-xs text-zinc-500 mt-0.5">Genera un plan nuevo con tus preferencias</p>
+    </div>
+    <svg class="w-5 h-5 text-zinc-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+  </a>
+
+  <form action="{% url 'routine_clear' %}" method="post"
+        onsubmit="return confirm('¿Vaciar toda tu rutina semanal? Tu historial no se borra.');">
+    {% csrf_token %}
+    <button type="submit" class="w-full flex items-center gap-4 rounded-2xl bg-zinc-900 border border-zinc-800 p-4 active:scale-[.98] transition text-left">
+      <div class="w-11 h-11 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-xl">🗑️</div>
+      <div class="flex-1">
+        <p class="font-bold text-sm text-red-400">Vaciar mi rutina</p>
+        <p class="text-xs text-zinc-500 mt-0.5">Borra todos los ejercicios de la semana</p>
+      </div>
+    </button>
+  </form>
+
+  <form action="{% url 'logout' %}" method="post">
+    {% csrf_token %}
+    <button type="submit" class="w-full rounded-xl border border-zinc-800 py-3.5 text-sm font-bold text-zinc-500 active:scale-[.98] transition">
+      Cerrar sesión
+    </button>
+  </form>
+</section>
+{% endblock %}

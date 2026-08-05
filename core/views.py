@@ -12,19 +12,64 @@ from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 
 from .forms import (
-    CardioItemForm, CategoryForm, ExerciseForm, RegisterForm, RoutineItemForm,
-    SiteConfigForm,
+    CardioItemForm, CategoryForm, ExerciseForm, PlanWizardForm, ProfileForm,
+    RegisterForm, RoutineItemForm, SiteConfigForm,
 )
 from .models import (
-    Category, DailyCheck, Exercise, Payment, RoutineItem, SiteConfig,
+    Category, DailyCheck, Exercise, Payment, Profile, RoutineItem, SiteConfig,
     Subscription, WorkoutLog,
 )
 from .payments import create_preference, verify_and_apply
+from .planner import generate_plan
 
 
 def item_form_class(exercise):
     """Formulario segun el tipo de ejercicio."""
     return CardioItemForm if exercise.kind == 'cardio' else RoutineItemForm
+
+
+def get_profile(user):
+    profile, _ = Profile.objects.get_or_create(user=user)
+    return profile
+
+
+def day_items(user, day, with_progress=True):
+    """Ejercicios del dia con su progreso de hoy ya resuelto."""
+    items = list(
+        RoutineItem.objects
+        .filter(user=user, day=day)
+        .select_related('exercise', 'exercise__category')
+    )
+    if with_progress:
+        checks = {
+            c.routine_item_id: c
+            for c in DailyCheck.objects.filter(
+                user=user, date=date.today(), routine_item__in=items,
+            )
+        }
+        for item in items:
+            check = checks.get(item.pk)
+            item.sets_done = check.sets_done if check else 0
+            item.is_checked = item.sets_done >= item.total_sets
+    return items
+
+
+def group_by_zone(items):
+    """Agrupa los ejercicios del dia por zona del cuerpo, con su progreso."""
+    zones = {}
+    for item in items:
+        cat = item.exercise.category
+        zone = zones.setdefault(cat.pk, {
+            'category': cat, 'items': [], 'done': 0, 'total': 0,
+        })
+        zone['items'].append(item)
+        zone['total'] += item.total_sets
+        zone['done'] += min(getattr(item, 'sets_done', 0), item.total_sets)
+    for zone in zones.values():
+        zone['pct'] = int(zone['done'] / zone['total'] * 100) if zone['total'] else 0
+        zone['complete'] = zone['pct'] == 100
+    return sorted(zones.values(), key=lambda z: (z['category'].order, z['category'].name))
+
 
 DAYS = RoutineItem.DAYS
 
@@ -55,48 +100,124 @@ def register_view(request):
 @login_required
 def home(request):
     today_idx = date.today().weekday()
-    items = list(
-        RoutineItem.objects
-        .filter(user=request.user, day=today_idx)
-        .select_related('exercise', 'exercise__category')
-    )
-    checked_ids = set(
-        DailyCheck.objects
-        .filter(user=request.user, date=date.today(), routine_item__in=items)
-        .values_list('routine_item_id', flat=True)
-    )
-    for item in items:
-        item.is_checked = item.pk in checked_ids
-    total = len(items)
-    done = len(checked_ids)
-    progress_pct = int(done / total * 100) if total else 0
+    items = day_items(request.user, today_idx)
+    zones = group_by_zone(items)
+
+    total_sets = sum(i.total_sets for i in items)
+    done_sets = sum(min(i.sets_done, i.total_sets) for i in items)
+    progress_pct = int(done_sets / total_sets * 100) if total_sets else 0
+    checked_count = sum(1 for i in items if i.is_checked)
 
     done_today = WorkoutLog.objects.filter(user=request.user, date=date.today()).exists()
-    total_logs = WorkoutLog.objects.filter(user=request.user).values('date').distinct().count()
+    logged_days = list(
+        WorkoutLog.objects.filter(user=request.user)
+        .values_list('date', flat=True).distinct()
+    )
+
+    # Si hoy toca descanso, ofrecemos el proximo dia con entrenamiento
+    week = sorted(set(
+        RoutineItem.objects.filter(user=request.user).values_list('day', flat=True)
+    ))
+    next_day = None
+    if not items and week:
+        upcoming = [d for d in week if d > today_idx] or week
+        next_day = {'day': upcoming[0], 'name': dict(DAYS)[upcoming[0]]}
+
     context = {
         'items': items,
+        'zones': zones,
+        'has_routine': bool(week),
+        'next_day': next_day,
         'today_name': dict(DAYS)[today_idx],
         'done_today': done_today,
-        'total_logs': total_logs,
-        'checked_count': done,
+        'total_logs': len(set(logged_days)),
+        'streak': current_streak(set(logged_days)),
+        'checked_count': checked_count,
+        'total_sets': total_sets,
+        'done_sets': done_sets,
         'progress_pct': progress_pct,
+        # circunferencia del anillo de progreso (r=52)
+        'ring_offset': 327 - (327 * progress_pct / 100),
         'sub': getattr(request.user, 'subscription', None),
         'active_tab': 'home',
     }
     return render(request, 'user/home.html', context)
 
 
+def current_streak(days):
+    """Dias consecutivos entrenados hasta hoy (o ayer, si hoy aun no entrena)."""
+    if not days:
+        return 0
+    from datetime import timedelta
+    cursor = date.today()
+    if cursor not in days:
+        cursor -= timedelta(days=1)
+        if cursor not in days:
+            return 0
+    streak = 0
+    while cursor in days:
+        streak += 1
+        cursor -= timedelta(days=1)
+    return streak
+
+
+@login_required
+def workout(request, day=None):
+    """Modo entrenamiento: ejercicio por ejercicio, con temporizador."""
+    if day is None:
+        day = date.today().weekday()
+    day = int(day)
+    items = day_items(request.user, day)
+    total_sets = sum(i.total_sets for i in items)
+    done_sets = sum(min(i.sets_done, i.total_sets) for i in items)
+    return render(request, 'user/workout.html', {
+        'items': items,
+        'day': day,
+        'day_name': dict(DAYS)[day],
+        'is_today': day == date.today().weekday(),
+        'total_sets': total_sets,
+        'done_sets': done_sets,
+        'progress_pct': int(done_sets / total_sets * 100) if total_sets else 0,
+        'done_today': WorkoutLog.objects.filter(user=request.user, date=date.today()).exists(),
+        'default_rest': get_profile(request.user).default_rest,
+        'active_tab': 'home',
+    })
+
+
 @login_required
 @require_POST
-def routine_item_check(request, pk):
-    """Marca o desmarca un ejercicio como completado hoy."""
+def set_done(request, pk):
+    """Suma (o resta) una serie completada hoy. Responde JSON para el modo entrenamiento."""
     item = get_object_or_404(RoutineItem, pk=pk, user=request.user)
-    check, created = DailyCheck.objects.get_or_create(
+    check, _ = DailyCheck.objects.get_or_create(
         routine_item=item, date=date.today(), defaults={'user': request.user},
     )
-    if not created:
-        check.delete()
-    return redirect('home')
+    action = request.POST.get('action', 'add')
+    if action == 'add':
+        check.sets_done = min(check.sets_done + 1, item.total_sets)
+    elif action == 'remove':
+        check.sets_done = max(check.sets_done - 1, 0)
+    elif action == 'complete':
+        check.sets_done = item.total_sets
+    else:  # toggle: completa o reinicia el ejercicio
+        check.sets_done = 0 if check.sets_done >= item.total_sets else item.total_sets
+    check.save()
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        from django.http import JsonResponse
+        items = day_items(request.user, item.day)
+        total = sum(i.total_sets for i in items)
+        done = sum(min(i.sets_done, i.total_sets) for i in items)
+        return JsonResponse({
+            'sets_done': check.sets_done,
+            'total_sets': item.total_sets,
+            'complete': check.sets_done >= item.total_sets,
+            'rest_seconds': item.rest_seconds,
+            'day_pct': int(done / total * 100) if total else 0,
+            'day_done': done,
+            'day_total': total,
+        })
+    return redirect(request.POST.get('next') or 'home')
 
 
 @login_required
@@ -106,19 +227,103 @@ def routine_view(request, day=None):
     day = int(day)
     if not 0 <= day <= 6:
         day = 0
-    items = (
-        RoutineItem.objects
-        .filter(user=request.user, day=day)
-        .select_related('exercise', 'exercise__category')
+    items = day_items(request.user, day, with_progress=False)
+    # Cuantos ejercicios tiene cada dia, para las pastillas de arriba
+    counts = dict(
+        RoutineItem.objects.filter(user=request.user)
+        .values_list('day').annotate(n=Count('id'))
     )
     context = {
         'items': items,
+        'zones': group_by_zone(items),
         'day': day,
         'day_name': dict(DAYS)[day],
-        'days': DAYS,
+        'days': [(value, name, counts.get(value, 0)) for value, name in DAYS],
+        'total_items': sum(counts.values()),
         'active_tab': 'routine',
     }
     return render(request, 'user/routine.html', context)
+
+
+# ---------------------------------------------------------------- Plan automatico
+
+@login_required
+def plan_wizard(request):
+    """La app arma la rutina semanal segun objetivo, nivel y equipamiento."""
+    profile = get_profile(request.user)
+    if request.method == 'POST':
+        form = PlanWizardForm(request.POST)
+        if form.is_valid():
+            data = form.cleaned_data
+            summary = generate_plan(
+                request.user,
+                days_per_week=data['days_per_week'],
+                goal=data['goal'],
+                level=data['level'],
+                equipment=data['equipment'] or None,
+            )
+            profile.goal = data['goal']
+            profile.level = data['level']
+            profile.days_per_week = data['days_per_week']
+            profile.save()
+            total = sum(s['count'] for s in summary)
+            messages.success(
+                request,
+                f'¡Rutina creada! {len(summary)} dias y {total} ejercicios. '
+                'Puedes ajustar pesos y descansos cuando quieras.',
+            )
+            return redirect('routine_day', day=summary[0]['day'])
+    else:
+        form = PlanWizardForm(initial={
+            'days_per_week': profile.days_per_week,
+            'goal': profile.goal,
+            'level': profile.level,
+        })
+    return render(request, 'user/plan_wizard.html', {
+        'form': form,
+        'has_routine': RoutineItem.objects.filter(user=request.user).exists(),
+        'active_tab': 'routine',
+    })
+
+
+@login_required
+@require_POST
+def item_rest(request, pk):
+    """Cambia el descanso entre series de un ejercicio de la rutina."""
+    item = get_object_or_404(RoutineItem, pk=pk, user=request.user)
+    try:
+        seconds = int(request.POST.get('rest_seconds', 60))
+    except ValueError:
+        seconds = 60
+    item.rest_seconds = max(10, min(seconds, 600))
+    item.save(update_fields=['rest_seconds'])
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        from django.http import JsonResponse
+        return JsonResponse({'rest_seconds': item.rest_seconds})
+    return redirect(request.POST.get('next') or 'workout')
+
+
+@login_required
+@require_POST
+def routine_clear(request):
+    RoutineItem.objects.filter(user=request.user).delete()
+    messages.success(request, 'Tu rutina fue vaciada. Puedes crear una nueva.')
+    return redirect('routine')
+
+
+@login_required
+def profile_settings(request):
+    profile = get_profile(request.user)
+    form = ProfileForm(request.POST or None, instance=profile)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, 'Preferencias guardadas.')
+        return redirect('profile')
+    return render(request, 'user/profile.html', {
+        'form': form, 'profile': profile,
+        'sub': getattr(request.user, 'subscription', None),
+        'active_tab': 'profile',
+    })
 
 
 @login_required
@@ -148,10 +353,13 @@ def routine_item_delete(request, pk):
 def catalog(request):
     categories = Category.objects.annotate(num=Count('exercises'))
     selected = request.GET.get('cat')
+    equipment = request.GET.get('eq', '')
     query = request.GET.get('q', '').strip()
     exercises = Exercise.objects.select_related('category')
     if selected:
         exercises = exercises.filter(category_id=selected)
+    if equipment:
+        exercises = exercises.filter(equipment=equipment)
     if query:
         exercises = exercises.filter(
             Q(title__icontains=query) | Q(description__icontains=query)
@@ -159,6 +367,8 @@ def catalog(request):
     context = {
         'categories': categories,
         'exercises': exercises,
+        'equipments': Exercise.EQUIPMENT,
+        'equipment': equipment,
         'selected': int(selected) if selected and selected.isdigit() else None,
         'query': query,
         'active_tab': 'catalog',
@@ -174,8 +384,12 @@ def exercise_add(request, pk):
         form = form_class(request.POST)
         days = request.POST.getlist('days')
         if form.is_valid() and days:
+            profile = get_profile(request.user)
             for d in days:
-                item = RoutineItem(user=request.user, exercise=exercise, day=int(d))
+                item = RoutineItem(
+                    user=request.user, exercise=exercise, day=int(d),
+                    rest_seconds=profile.default_rest,
+                )
                 for field, value in form.cleaned_data.items():
                     setattr(item, field, value)
                 item.save()
@@ -203,21 +417,29 @@ def log_today(request):
     if WorkoutLog.objects.filter(user=request.user, date=date.today()).exists():
         messages.error(request, 'Ya registraste tu entrenamiento de hoy.')
         return redirect('home')
-    checked = items.filter(checks__date=date.today())
-    if not checked.exists():
-        messages.error(request, 'Marca al menos un ejercicio completado antes de registrar.')
+    checks = {
+        c.routine_item_id: c.sets_done
+        for c in DailyCheck.objects.filter(
+            user=request.user, date=date.today(), routine_item__in=items, sets_done__gt=0,
+        )
+    }
+    if not checks:
+        messages.error(request, 'Marca al menos una serie completada antes de registrar.')
         return redirect('home')
-    for item in checked:
+    for item in items:
+        sets_done = checks.get(item.pk, 0)
+        if not sets_done:
+            continue
         WorkoutLog.objects.create(
             user=request.user,
             exercise=item.exercise,
             weight=item.weight,
-            sets=item.sets,
+            sets=sets_done if item.exercise.kind != 'cardio' else item.sets,
             reps=item.reps,
             duration_min=item.duration_min,
             distance_km=item.distance_km,
         )
-    messages.success(request, f'¡Entrenamiento registrado ({checked.count()} ejercicios)! 🔥')
+    messages.success(request, f'¡Entrenamiento registrado ({len(checks)} ejercicios)! 🔥')
     return redirect('home')
 
 

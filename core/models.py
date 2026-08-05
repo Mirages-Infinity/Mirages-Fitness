@@ -5,18 +5,23 @@ from django.db import models
 
 
 class Category(models.Model):
-    """Categoria muscular: Espalda, Pecho, Hombros, Abdomen, etc."""
+    """Zona del cuerpo: Espalda, Pecho, Hombros, Abdomen, etc."""
     name = models.CharField('Nombre', max_length=50, unique=True)
     icon = models.CharField(
         'Icono (emoji)', max_length=10, blank=True, default='💪',
-        help_text='Un emoji que representa la categoria',
+        help_text='Un emoji que representa la zona del cuerpo',
     )
+    color = models.CharField(
+        'Color', max_length=7, default='#a3e635',
+        help_text='Color de la zona en la app (hex, ej: #a3e635)',
+    )
+    order = models.PositiveIntegerField('Orden', default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = 'Categoria'
-        verbose_name_plural = 'Categorias'
-        ordering = ['name']
+        verbose_name = 'Zona del cuerpo'
+        verbose_name_plural = 'Zonas del cuerpo'
+        ordering = ['order', 'name']
 
     def __str__(self):
         return self.name
@@ -29,14 +34,34 @@ class Exercise(models.Model):
         ('cardio', 'Cardio (minutos y distancia)'),
     ]
 
+    EQUIPMENT = [
+        ('bodyweight', 'Calistenia (peso corporal)'),
+        ('barbell', 'Barra'),
+        ('dumbbell', 'Mancuerna'),
+        ('machine', 'Maquina'),
+        ('cable', 'Polea'),
+        ('kettlebell', 'Kettlebell'),
+        ('band', 'Banda elastica'),
+        ('other', 'Otro'),
+    ]
+    LEVELS = [
+        ('beginner', 'Principiante'),
+        ('intermediate', 'Intermedio'),
+        ('advanced', 'Avanzado'),
+    ]
+
     category = models.ForeignKey(
         Category, on_delete=models.CASCADE,
-        related_name='exercises', verbose_name='Categoria',
+        related_name='exercises', verbose_name='Zona del cuerpo',
     )
     title = models.CharField('Titulo', max_length=100)
     description = models.TextField('Descripcion', blank=True)
     image = models.ImageField('Imagen', upload_to='exercises/', blank=True, null=True)
     kind = models.CharField('Tipo', max_length=10, choices=KINDS, default='strength')
+    equipment = models.CharField(
+        'Equipamiento', max_length=12, choices=EQUIPMENT, default='bodyweight',
+    )
+    level = models.CharField('Nivel', max_length=12, choices=LEVELS, default='beginner')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -68,6 +93,8 @@ class RoutineItem(models.Model):
     reps = models.PositiveIntegerField('Repeticiones', default=10)
     duration_min = models.PositiveIntegerField('Duracion (min)', null=True, blank=True)
     distance_km = models.DecimalField('Distancia (km)', max_digits=6, decimal_places=2, null=True, blank=True)
+    rest_seconds = models.PositiveIntegerField('Descanso entre series (seg)', default=60)
+    note = models.CharField('Nota', max_length=120, blank=True)
     order = models.PositiveIntegerField('Orden', default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -78,6 +105,15 @@ class RoutineItem(models.Model):
 
     def __str__(self):
         return f'{self.user.username} - {self.get_day_display()} - {self.exercise.title}'
+
+    @property
+    def total_sets(self):
+        """Cardio se cuenta como una sola 'serie'."""
+        return 1 if self.exercise.kind == 'cardio' else self.sets
+
+    @property
+    def volume_kg(self):
+        return float(self.weight) * self.sets * self.reps
 
 
 class WorkoutLog(models.Model):
@@ -101,10 +137,11 @@ class WorkoutLog(models.Model):
 
 
 class DailyCheck(models.Model):
-    """Marca de 'ejercicio completado' para un dia concreto."""
+    """Progreso de un ejercicio en un dia concreto (series completadas)."""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='daily_checks')
     routine_item = models.ForeignKey(RoutineItem, on_delete=models.CASCADE, related_name='checks')
     date = models.DateField('Fecha', default=date.today)
+    sets_done = models.PositiveIntegerField('Series completadas', default=0)
 
     class Meta:
         verbose_name = 'Check diario'
@@ -116,11 +153,33 @@ class DailyCheck(models.Model):
     def __str__(self):
         return f'{self.user.username} - {self.date} - {self.routine_item.exercise.title}'
 
+    @property
+    def is_complete(self):
+        return self.sets_done >= self.routine_item.total_sets
+
 
 class Profile(models.Model):
-    """Datos de identidad del usuario (RUT chileno, unico por cuenta)."""
+    """Identidad (RUT chileno, unico) y preferencias de entrenamiento."""
+    GOALS = [
+        ('hipertrofia', 'Ganar masa muscular'),
+        ('fuerza', 'Ganar fuerza'),
+        ('perder_grasa', 'Bajar de peso / definir'),
+        ('resistencia', 'Resistencia y tonificar'),
+    ]
+    LEVELS = [
+        ('beginner', 'Principiante'),
+        ('intermediate', 'Intermedio'),
+        ('advanced', 'Avanzado'),
+    ]
+
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    rut = models.CharField('RUT', max_length=12, unique=True)
+    # Los usuarios creados antes del RUT (o por consola) pueden no tenerlo:
+    # el formulario de registro si lo exige y valida su unicidad.
+    rut = models.CharField('RUT', max_length=12, unique=True, null=True, blank=True)
+    goal = models.CharField('Objetivo', max_length=15, choices=GOALS, default='hipertrofia')
+    level = models.CharField('Nivel', max_length=12, choices=LEVELS, default='beginner')
+    days_per_week = models.PositiveIntegerField('Dias por semana', default=3)
+    default_rest = models.PositiveIntegerField('Descanso preferido (seg)', default=60)
 
     class Meta:
         verbose_name = 'Perfil'

@@ -1,0 +1,375 @@
+{% extends 'base.html' %}
+{% block title %}Entrenando · FitTrack{% endblock %}
+{% block content %}
+
+{# ---- Barra superior fija con el progreso del dia ---- #}
+<header class="sticky top-0 z-30 bg-zinc-950/95 backdrop-blur-lg border-b border-zinc-800/80">
+  <div class="flex items-center gap-3 px-4 py-3">
+    <a href="{% url 'home' %}" class="w-9 h-9 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 active:scale-95 transition shrink-0">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+    </a>
+    <div class="flex-1 min-w-0">
+      <p class="text-xs font-bold uppercase tracking-wider text-lime-400">Entrenando</p>
+      <p class="text-sm font-black truncate">{{ day_name }}</p>
+    </div>
+    <div class="text-right shrink-0">
+      <p class="text-sm font-black" id="dayPct">{{ progress_pct }}%</p>
+      <p class="text-[10px] text-zinc-500 font-semibold"><span id="dayDone">{{ done_sets }}</span>/<span id="dayTotal">{{ total_sets }}</span> series</p>
+    </div>
+  </div>
+  <div class="h-1 bg-zinc-800">
+    <div id="dayBar" class="h-full bg-gradient-to-r from-lime-500 to-lime-300 transition-all duration-500" style="width: {{ progress_pct }}%"></div>
+  </div>
+</header>
+
+{% if items %}
+<section class="px-4 py-4 space-y-3">
+  {% for item in items %}
+  <article id="card-{{ item.pk }}"
+           class="exercise-card rounded-2xl border overflow-hidden transition
+                  {% if item.is_checked %}bg-zinc-900/50 border-lime-400/30{% else %}bg-zinc-900 border-zinc-800{% endif %}"
+           data-id="{{ item.pk }}" data-total="{{ item.total_sets }}" data-done="{{ item.sets_done }}"
+           data-rest="{{ item.rest_seconds }}" data-name="{{ item.exercise.title }}"
+           data-cardio="{% if item.exercise.kind == 'cardio' %}1{% else %}0{% endif %}">
+
+    <div class="flex items-center gap-3 p-3">
+      {% include 'partials/thumb.html' with ex=item.exercise cls="w-14 h-14" %}
+      <div class="flex-1 min-w-0">
+        <p class="font-bold text-sm leading-tight">{{ item.exercise.title }}</p>
+        <div class="flex items-center gap-2 mt-1">
+          <span class="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                style="background: {{ item.exercise.category.color }}1a; color: {{ item.exercise.category.color }}">
+            {{ item.exercise.category.name }}
+          </span>
+          <span class="text-[10px] text-zinc-500 font-semibold">{{ item.exercise.get_equipment_display }}</span>
+        </div>
+        {% if item.note %}<p class="text-[11px] text-zinc-500 mt-1 italic">{{ item.note }}</p>{% endif %}
+      </div>
+      <a href="{% url 'routine_item_edit' item.pk %}" class="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 active:scale-95 transition shrink-0">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+      </a>
+    </div>
+
+    {# ---- Metricas ---- #}
+    <div class="px-3 pb-3 flex items-center gap-2">
+      {% if item.exercise.kind == 'cardio' %}
+        <div class="flex-1 rounded-xl bg-zinc-800/60 px-3 py-2 text-center">
+          <p class="text-base font-black text-lime-400">{{ item.duration_min|default:"–" }}</p>
+          <p class="text-[9px] text-zinc-500 font-bold uppercase">minutos</p>
+        </div>
+        <div class="flex-1 rounded-xl bg-zinc-800/60 px-3 py-2 text-center">
+          <p class="text-base font-black">{% if item.distance_km %}{{ item.distance_km|floatformat:"-2" }}{% else %}–{% endif %}</p>
+          <p class="text-[9px] text-zinc-500 font-bold uppercase">km</p>
+        </div>
+      {% else %}
+        <div class="flex-1 rounded-xl bg-zinc-800/60 px-3 py-2 text-center">
+          <p class="text-base font-black text-lime-400">{{ item.weight|floatformat:"-1" }}</p>
+          <p class="text-[9px] text-zinc-500 font-bold uppercase">kg</p>
+        </div>
+        <div class="flex-1 rounded-xl bg-zinc-800/60 px-3 py-2 text-center">
+          <p class="text-base font-black">{{ item.sets }}</p>
+          <p class="text-[9px] text-zinc-500 font-bold uppercase">series</p>
+        </div>
+        <div class="flex-1 rounded-xl bg-zinc-800/60 px-3 py-2 text-center">
+          <p class="text-base font-black">{{ item.reps }}</p>
+          <p class="text-[9px] text-zinc-500 font-bold uppercase">reps</p>
+        </div>
+      {% endif %}
+      <button type="button" class="rest-chip flex-1 rounded-xl bg-zinc-800/60 px-3 py-2 text-center active:scale-95 transition">
+        <p class="text-base font-black text-sky-400"><span class="rest-label">{{ item.rest_seconds }}</span>s</p>
+        <p class="text-[9px] text-zinc-500 font-bold uppercase">descanso</p>
+      </button>
+    </div>
+
+    {# ---- Series ---- #}
+    {% if item.exercise.kind != 'cardio' %}
+      <div class="px-3 pb-2 flex gap-1.5 dots"></div>
+    {% endif %}
+
+    <div class="px-3 pb-3">
+      <button type="button" class="set-btn w-full rounded-xl py-3.5 font-black text-sm active:scale-[.98] transition"></button>
+      <button type="button" class="undo-btn w-full mt-1.5 rounded-lg py-2 text-xs font-bold text-zinc-500 hidden">
+        ↩ Deshacer última serie
+      </button>
+    </div>
+  </article>
+  {% endfor %}
+</section>
+
+{# ---- Cierre ---- #}
+<section class="px-4 pb-6">
+  {% if done_today %}
+    <div class="rounded-xl bg-lime-400/10 border border-lime-400/30 px-4 py-3 text-center">
+      <p class="text-sm font-bold text-lime-400">✅ Ya registraste el entrenamiento de hoy</p>
+    </div>
+  {% elif is_today %}
+    <form action="{% url 'log_today' %}" method="post">
+      {% csrf_token %}
+      <button type="submit" class="w-full rounded-xl bg-lime-400 py-4 font-black text-zinc-950 active:scale-[.98] transition shadow-lg shadow-lime-400/20">
+        ✓ TERMINAR Y GUARDAR
+      </button>
+    </form>
+  {% endif %}
+</section>
+
+{% else %}
+<div class="px-5 py-10 text-center">
+  <span class="text-4xl">😴</span>
+  <p class="font-bold mt-3">No hay ejercicios para {{ day_name }}</p>
+  <a href="{% url 'plan_wizard' %}" class="inline-block mt-4 rounded-xl bg-lime-400 px-6 py-3 font-bold text-zinc-950 text-sm">Crear rutina</a>
+</div>
+{% endif %}
+
+{# ---- Overlay del temporizador de descanso ---- #}
+<div id="restOverlay" class="fixed inset-0 z-50 hidden items-center justify-center bg-zinc-950/95 backdrop-blur-xl px-6">
+  <div class="w-full max-w-xs text-center">
+    <p class="text-xs font-bold uppercase tracking-[0.2em] text-lime-400">Descanso</p>
+    <p id="restExercise" class="text-sm text-zinc-400 mt-1 truncate"></p>
+
+    <div class="relative my-6 mx-auto w-56 h-56">
+      <svg class="w-56 h-56 -rotate-90" viewBox="0 0 120 120">
+        <circle cx="60" cy="60" r="54" fill="none" stroke="#27272a" stroke-width="8"/>
+        <circle id="restRing" cx="60" cy="60" r="54" fill="none" stroke="#a3e635" stroke-width="8"
+                stroke-linecap="round" stroke-dasharray="339" stroke-dashoffset="0"/>
+      </svg>
+      <div class="absolute inset-0 flex flex-col items-center justify-center">
+        <span id="restTime" class="text-5xl font-black tabular-nums">0:00</span>
+        <span id="restNext" class="text-xs text-zinc-500 font-semibold mt-1"></span>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-center gap-2">
+      <button type="button" data-adjust="-15" class="rest-adjust rounded-xl bg-zinc-900 border border-zinc-800 px-4 py-3 font-bold text-sm active:scale-95 transition">−15s</button>
+      <button type="button" id="restPause" class="rounded-xl bg-zinc-900 border border-zinc-800 px-5 py-3 font-bold text-sm active:scale-95 transition">Pausar</button>
+      <button type="button" data-adjust="15" class="rest-adjust rounded-xl bg-zinc-900 border border-zinc-800 px-4 py-3 font-bold text-sm active:scale-95 transition">+15s</button>
+    </div>
+    <button type="button" id="restSkip" class="mt-3 w-full rounded-xl bg-lime-400 py-3.5 font-black text-zinc-950 active:scale-[.98] transition">
+      SALTAR DESCANSO
+    </button>
+  </div>
+</div>
+
+{# ---- Selector de descanso ---- #}
+<div id="restSheet" class="fixed inset-0 z-50 hidden items-end bg-zinc-950/70 backdrop-blur-sm">
+  <div class="w-full max-w-md mx-auto rounded-t-3xl bg-zinc-900 border-t border-zinc-800 p-5 pb-8">
+    <div class="w-10 h-1 rounded-full bg-zinc-700 mx-auto mb-4"></div>
+    <p class="font-black text-lg">Descanso entre series</p>
+    <p class="text-sm text-zinc-500 mt-0.5">Se guarda para este ejercicio</p>
+    <div class="grid grid-cols-3 gap-2 mt-4">
+      <button type="button" data-sec="30"  class="rest-opt rounded-xl bg-zinc-800 py-3 font-bold text-sm active:scale-95 transition">30 seg</button>
+      <button type="button" data-sec="45"  class="rest-opt rounded-xl bg-zinc-800 py-3 font-bold text-sm active:scale-95 transition">45 seg</button>
+      <button type="button" data-sec="60"  class="rest-opt rounded-xl bg-zinc-800 py-3 font-bold text-sm active:scale-95 transition">1 min</button>
+      <button type="button" data-sec="90"  class="rest-opt rounded-xl bg-zinc-800 py-3 font-bold text-sm active:scale-95 transition">1:30</button>
+      <button type="button" data-sec="120" class="rest-opt rounded-xl bg-zinc-800 py-3 font-bold text-sm active:scale-95 transition">2 min</button>
+      <button type="button" data-sec="180" class="rest-opt rounded-xl bg-zinc-800 py-3 font-bold text-sm active:scale-95 transition">3 min</button>
+      <button type="button" data-sec="240" class="rest-opt rounded-xl bg-zinc-800 py-3 font-bold text-sm active:scale-95 transition">4 min</button>
+      <button type="button" data-sec="300" class="rest-opt rounded-xl bg-zinc-800 py-3 font-bold text-sm active:scale-95 transition">5 min</button>
+      <button type="button" id="restSheetClose" class="rounded-xl bg-zinc-800/50 py-3 font-bold text-sm text-zinc-400 active:scale-95 transition">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const CSRF = '{{ csrf_token }}';
+  const RING = 339;
+
+  // ---------------------------------------------------------- Utilidades
+  const fmt = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+
+  function beep() {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      [0, 0.18, 0.36].forEach((delay, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = i === 2 ? 1046 : 784;
+        gain.gain.setValueAtTime(0.001, ctx.currentTime + delay);
+        gain.gain.exponentialRampToValueAtTime(0.35, ctx.currentTime + delay + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.15);
+        osc.start(ctx.currentTime + delay);
+        osc.stop(ctx.currentTime + delay + 0.16);
+      });
+    } catch (e) { /* el navegador puede bloquear audio sin interaccion */ }
+    if (navigator.vibrate) navigator.vibrate([200, 80, 200]);
+  }
+
+  // Mantiene la pantalla encendida mientras entrenas
+  let wakeLock = null;
+  async function keepAwake() {
+    try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
+  }
+  keepAwake();
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') keepAwake();
+  });
+
+  // ---------------------------------------------------------- Tarjetas
+  function paint(card) {
+    const total = +card.dataset.total;
+    const done = +card.dataset.done;
+    const cardio = card.dataset.cardio === '1';
+    const complete = done >= total;
+
+    const dots = card.querySelector('.dots');
+    if (dots) {
+      dots.innerHTML = '';
+      for (let i = 0; i < total; i++) {
+        const dot = document.createElement('div');
+        dot.className = 'flex-1 h-1.5 rounded-full ' + (i < done ? 'bg-lime-400' : 'bg-zinc-800');
+        dots.appendChild(dot);
+      }
+    }
+
+    const btn = card.querySelector('.set-btn');
+    if (complete) {
+      btn.textContent = '✓ COMPLETADO';
+      btn.className = 'set-btn w-full rounded-xl py-3.5 font-black text-sm active:scale-[.98] transition bg-lime-400/15 text-lime-400 border border-lime-400/30';
+      card.className = 'exercise-card rounded-2xl border overflow-hidden transition bg-zinc-900/50 border-lime-400/30';
+    } else {
+      btn.textContent = cardio ? 'COMPLETAR EJERCICIO' : `COMPLETAR SERIE ${done + 1} DE ${total}`;
+      btn.className = 'set-btn w-full rounded-xl py-3.5 font-black text-sm active:scale-[.98] transition bg-lime-400 text-zinc-950';
+      card.className = 'exercise-card rounded-2xl border overflow-hidden transition bg-zinc-900 border-zinc-800';
+    }
+    card.querySelector('.undo-btn').classList.toggle('hidden', done === 0);
+  }
+
+  function updateDay(data) {
+    document.getElementById('dayPct').textContent = data.day_pct + '%';
+    document.getElementById('dayDone').textContent = data.day_done;
+    document.getElementById('dayBar').style.width = data.day_pct + '%';
+  }
+
+  async function sendSet(card, action) {
+    const res = await fetch(`/rutina/item/${card.dataset.id}/serie/`, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': CSRF,
+        'X-Requested-With': 'XMLHttpRequest',
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: 'action=' + action,
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    card.dataset.done = data.sets_done;
+    paint(card);
+    updateDay(data);
+    return data;
+  }
+
+  document.querySelectorAll('.exercise-card').forEach((card) => {
+    paint(card);
+
+    card.querySelector('.set-btn').addEventListener('click', async () => {
+      const total = +card.dataset.total;
+      if (+card.dataset.done >= total) return;
+      const data = await sendSet(card, 'add');
+      if (!data) return;
+      // Descanso solo si quedan series por hacer
+      if (!data.complete) {
+        startRest(+card.dataset.rest, card.dataset.name, data.sets_done + 1, total);
+      } else {
+        if (navigator.vibrate) navigator.vibrate(120);
+        const next = card.nextElementSibling;
+        if (next) next.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    });
+
+    card.querySelector('.undo-btn').addEventListener('click', () => sendSet(card, 'remove'));
+
+    card.querySelector('.rest-chip').addEventListener('click', () => openSheet(card));
+  });
+
+  // ---------------------------------------------------------- Temporizador
+  const overlay = document.getElementById('restOverlay');
+  const ring = document.getElementById('restRing');
+  const timeEl = document.getElementById('restTime');
+  const nextEl = document.getElementById('restNext');
+  const nameEl = document.getElementById('restExercise');
+  const pauseBtn = document.getElementById('restPause');
+  let timer = null, left = 0, span = 0, paused = false;
+
+  function render() {
+    timeEl.textContent = fmt(Math.max(left, 0));
+    ring.style.strokeDashoffset = RING - (RING * Math.max(left, 0) / span);
+    ring.style.stroke = left <= 5 ? '#f97316' : '#a3e635';
+  }
+
+  function stopRest() {
+    clearInterval(timer);
+    timer = null;
+    overlay.classList.add('hidden');
+    overlay.classList.remove('flex');
+  }
+
+  function startRest(seconds, name, nextSet, total) {
+    left = span = seconds;
+    paused = false;
+    pauseBtn.textContent = 'Pausar';
+    nameEl.textContent = name;
+    nextEl.textContent = nextSet <= total ? `Sigue: serie ${nextSet} de ${total}` : '';
+    overlay.classList.remove('hidden');
+    overlay.classList.add('flex');
+    render();
+    clearInterval(timer);
+    timer = setInterval(() => {
+      if (paused) return;
+      left--;
+      render();
+      if (left <= 0) { beep(); stopRest(); }
+    }, 1000);
+  }
+
+  document.querySelectorAll('.rest-adjust').forEach((b) => {
+    b.addEventListener('click', () => {
+      const delta = +b.dataset.adjust;
+      left = Math.max(5, left + delta);
+      span = Math.max(span, left);
+      render();
+    });
+  });
+  pauseBtn.addEventListener('click', () => {
+    paused = !paused;
+    pauseBtn.textContent = paused ? 'Seguir' : 'Pausar';
+  });
+  document.getElementById('restSkip').addEventListener('click', stopRest);
+
+  // ---------------------------------------------------------- Selector de descanso
+  const sheet = document.getElementById('restSheet');
+  let sheetCard = null;
+
+  function openSheet(card) {
+    sheetCard = card;
+    sheet.classList.remove('hidden');
+    sheet.classList.add('flex');
+  }
+  function closeSheet() {
+    sheet.classList.add('hidden');
+    sheet.classList.remove('flex');
+  }
+  document.getElementById('restSheetClose').addEventListener('click', closeSheet);
+  sheet.addEventListener('click', (e) => { if (e.target === sheet) closeSheet(); });
+
+  document.querySelectorAll('.rest-opt').forEach((opt) => {
+    opt.addEventListener('click', async () => {
+      if (!sheetCard) return;
+      const sec = opt.dataset.sec;
+      sheetCard.dataset.rest = sec;
+      sheetCard.querySelector('.rest-label').textContent = sec;
+      closeSheet();
+      await fetch(`/rutina/item/${sheetCard.dataset.id}/descanso/`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': CSRF,
+          'X-Requested-With': 'XMLHttpRequest',
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'rest_seconds=' + sec,
+      });
+    });
+  });
+})();
+</script>
+{% endblock %}

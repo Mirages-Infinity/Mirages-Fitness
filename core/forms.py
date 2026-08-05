@@ -42,27 +42,39 @@ class RegisterForm(UserCreationForm):
     def save(self, commit=True):
         user = super().save(commit=commit)
         if commit:
-            Profile.objects.create(user=user, rut=self.cleaned_data['rut'])
+            # El perfil ya lo crea la signal: aqui solo se le asigna el RUT.
+            Profile.objects.update_or_create(
+                user=user, defaults={'rut': self.cleaned_data['rut']},
+            )
         return user
 
 
 class CategoryForm(forms.ModelForm):
     class Meta:
         model = Category
-        fields = ['name', 'icon']
+        fields = ['name', 'icon', 'color', 'order']
         widgets = {
             'name': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'Ej: Espalda'}),
             'icon': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'Ej: 💪'}),
+            'color': forms.TextInput(attrs={
+                'type': 'color',
+                'class': 'w-full h-12 rounded-xl bg-zinc-900 border border-zinc-700 p-1',
+            }),
+            'order': forms.NumberInput(attrs={
+                'class': INPUT_CLASS, 'min': '0', 'inputmode': 'numeric',
+            }),
         }
 
 
 class ExerciseForm(forms.ModelForm):
     class Meta:
         model = Exercise
-        fields = ['category', 'title', 'kind', 'description', 'image']
+        fields = ['category', 'title', 'kind', 'equipment', 'level', 'description', 'image']
         widgets = {
             'category': forms.Select(attrs={'class': INPUT_CLASS}),
             'kind': forms.Select(attrs={'class': INPUT_CLASS}),
+            'equipment': forms.Select(attrs={'class': INPUT_CLASS}),
+            'level': forms.Select(attrs={'class': INPUT_CLASS}),
             'title': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'Ej: Press de banca'}),
             'description': forms.Textarea(attrs={
                 'class': INPUT_CLASS, 'rows': 3,
@@ -100,11 +112,22 @@ class SiteConfigForm(forms.ModelForm):
         }
 
 
+REST_CHOICES = [
+    (30, '30 seg'), (45, '45 seg'), (60, '1 min'), (90, '1:30 min'),
+    (120, '2 min'), (150, '2:30 min'), (180, '3 min'), (240, '4 min'), (300, '5 min'),
+]
+
+
 class RoutineItemForm(forms.ModelForm):
-    """Ejercicios de fuerza: peso, series y repeticiones."""
+    """Ejercicios de fuerza: peso, series, repeticiones y descanso."""
+    rest_seconds = forms.TypedChoiceField(
+        label='Descanso entre series', choices=REST_CHOICES, coerce=int, initial=60,
+        widget=forms.Select(attrs={'class': INPUT_CLASS}),
+    )
+
     class Meta:
         model = RoutineItem
-        fields = ['weight', 'sets', 'reps']
+        fields = ['weight', 'sets', 'reps', 'rest_seconds', 'note']
         widgets = {
             'weight': forms.NumberInput(attrs={
                 'class': INPUT_CLASS, 'step': '0.5', 'min': '0', 'inputmode': 'decimal',
@@ -115,6 +138,9 @@ class RoutineItemForm(forms.ModelForm):
             'reps': forms.NumberInput(attrs={
                 'class': INPUT_CLASS, 'min': '1', 'inputmode': 'numeric',
             }),
+            'note': forms.TextInput(attrs={
+                'class': INPUT_CLASS, 'placeholder': 'Nota opcional (ej: agarre cerrado)',
+            }),
         }
 
 
@@ -122,13 +148,16 @@ class CardioItemForm(forms.ModelForm):
     """Ejercicios de cardio: duracion y distancia."""
     class Meta:
         model = RoutineItem
-        fields = ['duration_min', 'distance_km']
+        fields = ['duration_min', 'distance_km', 'note']
         widgets = {
             'duration_min': forms.NumberInput(attrs={
                 'class': INPUT_CLASS, 'min': '1', 'inputmode': 'numeric',
             }),
             'distance_km': forms.NumberInput(attrs={
                 'class': INPUT_CLASS, 'step': '0.1', 'min': '0', 'inputmode': 'decimal',
+            }),
+            'note': forms.TextInput(attrs={
+                'class': INPUT_CLASS, 'placeholder': 'Nota opcional (ej: ritmo suave)',
             }),
         }
 
@@ -137,3 +166,44 @@ class CardioItemForm(forms.ModelForm):
         self.fields['duration_min'].required = True
         self.fields['duration_min'].initial = 30
         self.fields['distance_km'].required = False
+
+
+class PlanWizardForm(forms.Form):
+    """Preferencias para que la app arme la rutina semanal."""
+    days_per_week = forms.TypedChoiceField(
+        label='Dias por semana', coerce=int, initial=3,
+        choices=[(i, f'{i} dia{"s" if i > 1 else ""} por semana') for i in range(1, 7)],
+        widget=forms.Select(attrs={'class': INPUT_CLASS}),
+    )
+    goal = forms.ChoiceField(
+        label='Objetivo', choices=Profile.GOALS, initial='hipertrofia',
+        widget=forms.Select(attrs={'class': INPUT_CLASS}),
+    )
+    level = forms.ChoiceField(
+        label='Nivel', choices=Profile.LEVELS, initial='beginner',
+        widget=forms.Select(attrs={'class': INPUT_CLASS}),
+    )
+    equipment = forms.MultipleChoiceField(
+        label='Equipamiento disponible', choices=Exercise.EQUIPMENT, required=False,
+        widget=forms.CheckboxSelectMultiple(),
+        help_text='Si no marcas nada, se usa todo el catalogo.',
+    )
+
+
+class ProfileForm(forms.ModelForm):
+    """Preferencias de entrenamiento del usuario."""
+    default_rest = forms.TypedChoiceField(
+        label='Descanso preferido', choices=REST_CHOICES, coerce=int, initial=60,
+        widget=forms.Select(attrs={'class': INPUT_CLASS}),
+    )
+
+    class Meta:
+        model = Profile
+        fields = ['goal', 'level', 'days_per_week', 'default_rest']
+        widgets = {
+            'goal': forms.Select(attrs={'class': INPUT_CLASS}),
+            'level': forms.Select(attrs={'class': INPUT_CLASS}),
+            'days_per_week': forms.NumberInput(attrs={
+                'class': INPUT_CLASS, 'min': '1', 'max': '6', 'inputmode': 'numeric',
+            }),
+        }

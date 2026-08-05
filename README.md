@@ -50,13 +50,23 @@ navegador o desde el celular en la misma red).
 
 ### Usuario
 - Se registra con **RUT chileno válido** (dígito verificador verificado; una sola cuenta por RUT)
-- **Hoy**: rutina del día con **check de completado** por ejercicio y **barra de progreso
-  diaria**; el botón "Registrar entrenamiento" guarda en el historial los ejercicios marcados
-- **Rutina**: organiza la semana (Lunes a Domingo), edita cada ejercicio
-- **Ejercicios**: catálogo con búsqueda y filtro por categoría. Dos tipos:
+- **Hoy**: anillo de progreso del día, racha 🔥 y la rutina **agrupada por zona del cuerpo**
+  (Pecho, Espalda, Piernas...) con barra de progreso por zona. Si el día es de descanso,
+  ofrece el próximo día de entrenamiento.
+- **Modo entrenamiento** (`Empezar`): ejercicio por ejercicio, marcando **serie por serie**.
+  Al terminar cada serie arranca solo un **temporizador de descanso** a pantalla completa
+  (cuenta regresiva, ±15 seg, pausar, saltar, pitido y vibración al terminar). El descanso
+  se elige por ejercicio: 30 seg, 45 seg, 1, 1:30, 2, 3, 4 o 5 minutos, y queda guardado.
+  La pantalla del celular se mantiene encendida mientras entrenas.
+- **Rutina automática** ✨: la app arma el plan semanal según **días por semana (1-6),
+  objetivo y nivel**, con el reparto clásico (full body, empuje/tirón/pierna, torso/pierna)
+  y series, reps y descansos acordes. También puedes armarla tú desde el catálogo.
+- **Ejercicios**: catálogo de +110 ejercicios con búsqueda, filtro por zona y por
+  **equipamiento** (calistenia, barra, mancuerna, máquina, polea, kettlebell, banda). Dos tipos:
   - *Fuerza*: peso (kg), series y repeticiones
-  - *Cardio* (caminar, trotar, correr): minutos y kilómetros
+  - *Cardio* (caminar, trotar, correr, bici...): minutos y kilómetros
 - **Progreso**: historial de sesiones y evolución por ejercicio (kg en fuerza, km en cardio)
+- **Perfil**: objetivo, nivel, días por semana y descanso preferido
 
 El admin además puede **liberar de pago** a usuarios elegidos (Panel → Usuarios → "🎁 Liberar"):
 acceso gratis sin límite hasta que se lo quite.
@@ -102,12 +112,13 @@ Crea otro administrador.
 ```
 config/          Configuración del proyecto Django
 core/
-  models.py      Category, Exercise, RoutineItem, WorkoutLog,
-                 SiteConfig, Subscription, Payment
+  models.py      Category (zona), Exercise, RoutineItem, DailyCheck, WorkoutLog,
+                 Profile, SiteConfig, Subscription, Payment
   views.py       Vistas de usuario + suscripción/pagos + panel de administración
+  planner.py     Generador automático de rutinas semanales
   payments.py    Integración con Mercado Pago (Checkout Pro + webhook)
   middleware.py  Bloqueo automático de suscripciones vencidas
-  signals.py     Prueba gratis automática al registrarse
+  signals.py     Prueba gratis + perfil automáticos al registrarse
   forms.py       Formularios con estilos Tailwind
   templates/
     base.html    Layout móvil + barra de navegación inferior

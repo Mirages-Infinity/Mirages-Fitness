@@ -48,7 +48,16 @@
         {{ form.reps }}
       </div>
     </div>
+    <div>
+      <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">⏱ Descanso entre series</label>
+      {{ form.rest_seconds }}
+    </div>
   {% endif %}
+
+  <div>
+    <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Nota (opcional)</label>
+    {{ form.note }}
+  </div>
   <button type="submit"
           class="w-full rounded-xl bg-lime-400 py-4 font-black text-zinc-950 active:scale-[.98] transition shadow-lg shadow-lime-400/20">
     Guardar cambios

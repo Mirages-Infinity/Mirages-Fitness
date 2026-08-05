@@ -23,9 +23,20 @@
     <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Nombre</label>
     {{ form.name }}
   </div>
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Icono (emoji)</label>
+      {{ form.icon }}
+    </div>
+    <div>
+      <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Orden</label>
+      {{ form.order }}
+    </div>
+  </div>
   <div>
-    <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Icono (emoji)</label>
-    {{ form.icon }}
+    <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Color de la zona</label>
+    {{ form.color }}
+    <p class="text-[11px] text-zinc-600 mt-1">Se usa en las barras de progreso y las tarjetas de ejercicios.</p>
   </div>
   <button type="submit"
           class="w-full rounded-xl bg-lime-400 py-4 font-black text-zinc-950 active:scale-[.98] transition shadow-lg shadow-lime-400/20">

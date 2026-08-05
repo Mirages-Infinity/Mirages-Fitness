@@ -1,0 +1,36 @@
+{% comment %}
+Miniatura del ejercicio: usa la imagen subida o genera una ilustracion
+con el color de la zona del cuerpo y el icono del equipamiento.
+Recibe: ex (Exercise) y cls (clases de tamano, ej "w-14 h-14").
+{% endcomment %}
+{% if ex.image %}
+  <img src="{{ ex.image.url }}" alt="{{ ex.title }}"
+       class="{{ cls|default:'w-14 h-14' }} rounded-xl object-cover bg-zinc-800 shrink-0">
+{% else %}
+  <div class="{{ cls|default:'w-14 h-14' }} rounded-xl shrink-0 flex items-center justify-center relative overflow-hidden"
+       style="background: linear-gradient(135deg, {{ ex.category.color }}26, {{ ex.category.color }}0d); border: 1px solid {{ ex.category.color }}33;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="{{ ex.category.color }}" stroke-width="1.7"
+         stroke-linecap="round" stroke-linejoin="round" class="w-1/2 h-1/2">
+      {% if ex.equipment == 'barbell' %}
+        <path d="M3 9v6M6 7v10M18 7v10M21 9v6M6 12h12"/>
+      {% elif ex.equipment == 'dumbbell' %}
+        <path d="M5 8v8M8 6v12M16 6v12M19 8v8M8 12h8"/>
+      {% elif ex.equipment == 'machine' %}
+        <path d="M4 4v16M4 7h9a3 3 0 013 3v2M20 14h-3M18.5 14v6M15 20h7"/>
+      {% elif ex.equipment == 'cable' %}
+        <path d="M6 3v5M6 8h8a4 4 0 014 4v3M18 15l-2.5 4h5L18 15zM4 3h4"/>
+      {% elif ex.equipment == 'kettlebell' %}
+        <path d="M9 7a3 3 0 016 0M8 7h8l2 8a5 5 0 01-5 6h-2a5 5 0 01-5-6l2-8z"/>
+      {% elif ex.equipment == 'band' %}
+        <path d="M4 8c4-4 12-4 16 0M4 16c4 4 12 4 16 0M4 8v8M20 8v8"/>
+      {% elif ex.equipment == 'bodyweight' %}
+        <circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M12 13l-3 7M12 13l3 7M5 9l7 1 7-1"/>
+      {% else %}
+        <path d="M12 3l2.4 5.6L20 10l-4 4 1 6-5-2.8L7 20l1-6-4-4 5.6-1.4L12 3z"/>
+      {% endif %}
+    </svg>
+    {% if ex.kind == 'cardio' %}
+      <span class="absolute bottom-0.5 right-1 text-[9px]">🏃</span>
+    {% endif %}
+  </div>
+{% endif %}

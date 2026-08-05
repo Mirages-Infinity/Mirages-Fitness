@@ -3,18 +3,23 @@
 {% block content %}
 
 {# ---- Encabezado ---- #}
-<header class="px-5 pt-8 pb-5">
+<header class="px-5 pt-8 pb-4">
   <div class="flex items-center justify-between">
     <div>
       <p class="text-zinc-400 text-sm font-medium">Hola, {{ user.username }} 👋</p>
       <h1 class="text-2xl font-black tracking-tight mt-0.5">{{ today_name }}</h1>
     </div>
-    <form action="{% url 'logout' %}" method="post">
-      {% csrf_token %}
-      <button type="submit" class="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 active:scale-95 transition" title="Cerrar sesión">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-      </button>
-    </form>
+    <div class="flex items-center gap-2">
+      {% if streak %}
+        <div class="flex items-center gap-1 rounded-full bg-orange-500/10 border border-orange-500/30 px-3 py-1.5">
+          <span class="text-sm">🔥</span>
+          <span class="text-sm font-black text-orange-400">{{ streak }}</span>
+        </div>
+      {% endif %}
+      <a href="{% url 'profile' %}" class="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center font-black text-lime-400 active:scale-95 transition">
+        {{ user.username|first|upper }}
+      </a>
+    </div>
   </div>
 
   {# ---- Aviso de suscripcion ---- #}
@@ -24,111 +29,195 @@
         <p class="text-sm font-semibold text-amber-400">⏳ Prueba gratis: {{ sub.days_left }} día{{ sub.days_left|pluralize }} restante{{ sub.days_left|pluralize }}</p>
         <span class="text-xs font-bold text-amber-400">Suscribirme →</span>
       </a>
-    {% elif sub.days_left <= 5 %}
+    {% elif not sub.exempt and sub.days_left <= 5 %}
       <a href="{% url 'subscription' %}" class="mt-4 flex items-center justify-between rounded-xl bg-red-500/10 border border-red-500/30 px-4 py-3">
         <p class="text-sm font-semibold text-red-400">⚠️ Tu suscripción vence en {{ sub.days_left }} día{{ sub.days_left|pluralize }}</p>
         <span class="text-xs font-bold text-red-400">Renovar →</span>
       </a>
     {% endif %}
   {% endif %}
-
-  {# ---- Tarjeta resumen ---- #}
-  <div class="mt-5 rounded-2xl bg-gradient-to-br from-lime-400 to-lime-500 p-5 text-zinc-950 shadow-lg shadow-lime-400/10">
-    <div class="flex items-center justify-between">
-      <div>
-        <p class="text-xs font-bold uppercase tracking-wider opacity-70">Entrenamientos completados</p>
-        <p class="text-4xl font-black mt-1">{{ total_logs }}</p>
-      </div>
-      <span class="text-5xl">🔥</span>
-    </div>
-    {% if done_today %}
-      <p class="mt-3 text-sm font-bold flex items-center gap-1.5">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-        ¡Entrenamiento de hoy completado!
-      </p>
-    {% endif %}
-  </div>
 </header>
 
-{# ---- Rutina de hoy ---- #}
-<section class="px-5">
-  <div class="flex items-center justify-between mb-2">
-    <h2 class="text-lg font-bold">Rutina de hoy</h2>
-    <span class="text-xs font-semibold text-zinc-500">{{ checked_count }}/{{ items|length }} completado{{ checked_count|pluralize }}</span>
-  </div>
-
-  {% if items %}
-    {# ---- Barra de progreso diario ---- #}
-    <div class="mb-4">
-      <div class="h-2.5 rounded-full bg-zinc-800 overflow-hidden">
-        <div class="h-full rounded-full bg-gradient-to-r from-lime-500 to-lime-300 transition-all duration-500"
-             style="width: {{ progress_pct }}%"></div>
-      </div>
-      {% if progress_pct == 100 %}
-        <p class="text-xs font-bold text-lime-400 mt-1.5 text-center">💯 ¡Completaste todo el día!</p>
-      {% endif %}
-    </div>
-
-    <div class="space-y-3">
-      {% for item in items %}
-      <div class="flex items-center gap-3 rounded-2xl border p-3 transition
-                  {% if item.is_checked %}bg-lime-400/5 border-lime-400/30{% else %}bg-zinc-900 border-zinc-800{% endif %}">
-        {# ---- Check ---- #}
-        <form action="{% url 'routine_item_check' item.pk %}" method="post" class="shrink-0">
-          {% csrf_token %}
-          <button type="submit" {% if done_today %}disabled{% endif %}
-                  class="w-10 h-10 rounded-full border-2 flex items-center justify-center transition active:scale-90
-                         {% if item.is_checked %}bg-lime-400 border-lime-400 text-zinc-950{% else %}border-zinc-600 text-transparent{% endif %}">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-          </button>
-        </form>
-        {% if item.exercise.image %}
-          <img src="{{ item.exercise.image.url }}" alt="{{ item.exercise.title }}"
-               class="w-12 h-12 rounded-xl object-cover bg-zinc-800 shrink-0 {% if item.is_checked %}opacity-60{% endif %}">
-        {% else %}
-          <div class="w-12 h-12 rounded-xl bg-zinc-800 flex items-center justify-center text-xl shrink-0 {% if item.is_checked %}opacity-60{% endif %}">{{ item.exercise.category.icon|default:'💪' }}</div>
-        {% endif %}
-        <div class="flex-1 min-w-0 {% if item.is_checked %}opacity-60{% endif %}">
-          <p class="font-bold text-sm truncate {% if item.is_checked %}line-through{% endif %}">{{ item.exercise.title }}</p>
-          <div class="flex gap-3 mt-1 text-xs font-semibold">
-            {% if item.exercise.kind == 'cardio' %}
-              <span class="text-lime-400">{{ item.duration_min|default:"–" }} min</span>
-              {% if item.distance_km %}<span class="text-zinc-400">{{ item.distance_km|floatformat:"-2" }} km</span>{% endif %}
-            {% else %}
-              <span class="text-lime-400">{{ item.weight|floatformat:"-1" }} kg</span>
-              <span class="text-zinc-400">{{ item.sets }}×{{ item.reps }}</span>
-            {% endif %}
+{% if items %}
+  {# ---- Anillo de progreso del dia ---- #}
+  <section class="px-5">
+    <div class="rounded-3xl bg-zinc-900 border border-zinc-800 p-5">
+      <div class="flex items-center gap-5">
+        <div class="relative shrink-0">
+          <svg class="w-28 h-28 -rotate-90" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="52" fill="none" stroke="#27272a" stroke-width="10"/>
+            <circle cx="60" cy="60" r="52" fill="none" stroke="url(#ringGrad)" stroke-width="10"
+                    stroke-linecap="round" stroke-dasharray="327"
+                    stroke-dashoffset="{{ ring_offset|floatformat:0 }}"
+                    style="transition: stroke-dashoffset .6s ease"/>
+            <defs>
+              <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#84cc16"/>
+                <stop offset="100%" stop-color="#bef264"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <div class="absolute inset-0 flex flex-col items-center justify-center">
+            <span class="text-2xl font-black leading-none">{{ progress_pct }}%</span>
+            <span class="text-[10px] text-zinc-500 font-bold uppercase mt-0.5">hoy</span>
           </div>
         </div>
-        <a href="{% url 'routine_item_edit' item.pk %}" class="w-9 h-9 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 active:scale-95 transition shrink-0">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-        </a>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-bold">{{ checked_count }} de {{ items|length }} ejercicios</p>
+          <p class="text-xs text-zinc-500 mt-0.5">{{ done_sets }}/{{ total_sets }} series completadas</p>
+          <a href="{% url 'workout' %}"
+             class="mt-3 flex items-center justify-center gap-2 rounded-xl bg-lime-400 py-3 font-black text-zinc-950 text-sm active:scale-[.98] transition shadow-lg shadow-lime-400/20">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            {% if done_sets %}CONTINUAR{% else %}EMPEZAR{% endif %}
+          </a>
+        </div>
       </div>
+    </div>
+  </section>
+
+  {# ---- Zonas del cuerpo ---- #}
+  <section class="px-5 mt-5">
+    <h2 class="text-lg font-bold mb-3">Zonas de hoy</h2>
+    <div class="space-y-3">
+      {% for zone in zones %}
+      <details class="rounded-2xl bg-zinc-900 border border-zinc-800 overflow-hidden group" {% if not zone.complete %}open{% endif %}>
+        <summary class="flex items-center gap-3 p-4 cursor-pointer list-none">
+          <div class="w-11 h-11 rounded-xl flex items-center justify-center text-xl shrink-0"
+               style="background: {{ zone.category.color }}1a; border: 1px solid {{ zone.category.color }}40;">
+            {{ zone.category.icon|default:'💪' }}
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between">
+              <p class="font-bold text-sm">{{ zone.category.name }}</p>
+              <span class="text-xs font-bold" style="color: {{ zone.category.color }}">{{ zone.done }}/{{ zone.total }}</span>
+            </div>
+            <div class="h-1.5 rounded-full bg-zinc-800 overflow-hidden mt-2">
+              <div class="h-full rounded-full transition-all duration-500"
+                   style="width: {{ zone.pct }}%; background: {{ zone.category.color }}"></div>
+            </div>
+          </div>
+          {% if zone.complete %}<span class="text-lg shrink-0">✅</span>{% endif %}
+          <svg class="w-4 h-4 text-zinc-600 transition group-open:rotate-180 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+        </summary>
+
+        <div class="border-t border-zinc-800 divide-y divide-zinc-800/60">
+          {% for item in zone.items %}
+          <div class="flex items-center gap-3 px-4 py-3 {% if item.is_checked %}opacity-60{% endif %}">
+            {% include 'partials/thumb.html' with ex=item.exercise cls="w-11 h-11" %}
+            <div class="flex-1 min-w-0">
+              <p class="font-bold text-sm truncate {% if item.is_checked %}line-through{% endif %}">{{ item.exercise.title }}</p>
+              <div class="flex gap-2.5 mt-0.5 text-xs font-semibold">
+                {% if item.exercise.kind == 'cardio' %}
+                  <span class="text-lime-400">{{ item.duration_min|default:"–" }} min</span>
+                  {% if item.distance_km %}<span class="text-zinc-500">{{ item.distance_km|floatformat:"-2" }} km</span>{% endif %}
+                {% else %}
+                  <span class="text-lime-400">{{ item.weight|floatformat:"-1" }} kg</span>
+                  <span class="text-zinc-500">{{ item.sets_done }}/{{ item.sets }} × {{ item.reps }}</span>
+                {% endif %}
+              </div>
+            </div>
+            <form action="{% url 'set_done' item.pk %}" method="post" class="shrink-0">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="toggle">
+              <input type="hidden" name="next" value="{% url 'home' %}">
+              <button type="submit"
+                      class="w-9 h-9 rounded-full border-2 flex items-center justify-center transition active:scale-90
+                             {% if item.is_checked %}bg-lime-400 border-lime-400 text-zinc-950{% else %}border-zinc-700 text-transparent{% endif %}">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+              </button>
+            </form>
+          </div>
+          {% endfor %}
+        </div>
+      </details>
       {% endfor %}
     </div>
 
-    {% if not done_today %}
-    <form action="{% url 'log_today' %}" method="post" class="mt-5">
-      {% csrf_token %}
-      <button type="submit"
-              class="w-full rounded-xl py-4 font-black text-base active:scale-[.98] transition
-                     {% if checked_count %}bg-lime-400 text-zinc-950 shadow-lg shadow-lime-400/20{% else %}bg-zinc-800 text-zinc-500{% endif %}">
-        ✓ REGISTRAR ENTRENAMIENTO
-      </button>
-      <p class="text-center text-xs text-zinc-600 mt-2">
-        {% if checked_count %}Guarda los {{ checked_count }} ejercicio{{ checked_count|pluralize }} completado{{ checked_count|pluralize }} en tu historial{% else %}Marca los ejercicios que vayas completando{% endif %}
-      </p>
-    </form>
+    {# ---- Registrar ---- #}
+    {% if done_today %}
+      <div class="mt-5 rounded-xl bg-lime-400/10 border border-lime-400/30 px-4 py-3 text-center">
+        <p class="text-sm font-bold text-lime-400">✅ Entrenamiento de hoy registrado</p>
+      </div>
+    {% else %}
+      <form action="{% url 'log_today' %}" method="post" class="mt-5">
+        {% csrf_token %}
+        <button type="submit"
+                class="w-full rounded-xl py-4 font-black text-base active:scale-[.98] transition
+                       {% if done_sets %}bg-lime-400 text-zinc-950 shadow-lg shadow-lime-400/20{% else %}bg-zinc-800 text-zinc-500{% endif %}">
+          ✓ GUARDAR EN MI HISTORIAL
+        </button>
+        <p class="text-center text-xs text-zinc-600 mt-2">
+          {% if done_sets %}Registra las {{ done_sets }} series completadas de hoy{% else %}Completa al menos una serie para guardar{% endif %}
+        </p>
+      </form>
     {% endif %}
-  {% else %}
-    <div class="rounded-2xl border border-dashed border-zinc-800 p-8 text-center">
-      <span class="text-4xl">😴</span>
-      <p class="font-bold mt-3">Hoy no tienes ejercicios</p>
-      <p class="text-sm text-zinc-500 mt-1">Agrega ejercicios del catálogo a tu rutina de {{ today_name }}</p>
-      <a href="{% url 'catalog' %}" class="inline-block mt-4 rounded-xl bg-lime-400 px-6 py-3 font-bold text-zinc-950 text-sm active:scale-95 transition">
-        Explorar ejercicios
+  </section>
+
+{% elif has_routine %}
+  {# ---- Dia de descanso ---- #}
+  <section class="px-5">
+    <div class="rounded-3xl bg-zinc-900 border border-zinc-800 p-6 text-center">
+      <span class="text-5xl">😌</span>
+      <p class="text-xl font-black mt-3">Día de descanso</p>
+      <p class="text-sm text-zinc-400 mt-1.5">
+        Hoy no toca entrenar en tu plan. Descansar también es parte del progreso.
+      </p>
+      {% if next_day %}
+        <a href="{% url 'workout_day' next_day.day %}"
+           class="mt-5 flex items-center justify-center gap-2 rounded-xl bg-lime-400 py-3.5 font-black text-zinc-950 text-sm active:scale-[.98] transition">
+          Ver rutina de {{ next_day.name }}
+        </a>
+      {% endif %}
+      <a href="{% url 'routine' %}" class="mt-2 block rounded-xl border border-zinc-800 py-3 font-bold text-zinc-400 text-sm active:scale-[.98] transition">
+        Ver mi semana completa
       </a>
     </div>
-  {% endif %}
-</section>
+
+    <div class="mt-4 grid grid-cols-2 gap-3">
+      <div class="rounded-2xl bg-zinc-900 border border-zinc-800 p-4 text-center">
+        <p class="text-2xl font-black">{{ total_logs }}</p>
+        <p class="text-[10px] text-zinc-500 font-bold uppercase mt-0.5">Entrenamientos</p>
+      </div>
+      <div class="rounded-2xl bg-zinc-900 border border-zinc-800 p-4 text-center">
+        <p class="text-2xl font-black">{{ streak }} 🔥</p>
+        <p class="text-[10px] text-zinc-500 font-bold uppercase mt-0.5">Racha (días)</p>
+      </div>
+    </div>
+  </section>
+
+{% else %}
+  {# ---- Sin rutina ---- #}
+  <section class="px-5">
+    <div class="rounded-3xl bg-gradient-to-br from-lime-400 to-lime-500 p-6 text-zinc-950">
+      <span class="text-4xl">🎯</span>
+      <p class="text-xl font-black mt-3 leading-tight">Arma tu plan<br>en 10 segundos</p>
+      <p class="text-sm font-medium opacity-80 mt-2">
+        Dinos tu objetivo y nivel, y creamos tu rutina semanal completa con series, repeticiones y descansos.
+      </p>
+      <a href="{% url 'plan_wizard' %}"
+         class="mt-4 flex items-center justify-center rounded-xl bg-zinc-950 py-3.5 font-black text-lime-400 active:scale-[.98] transition">
+        CREAR MI RUTINA ✨
+      </a>
+    </div>
+
+    <div class="mt-4 rounded-2xl border border-dashed border-zinc-800 p-6 text-center">
+      <p class="font-bold text-sm">¿Prefieres armarla tú?</p>
+      <p class="text-sm text-zinc-500 mt-1">Elige del catálogo y asígnalo a tus días</p>
+      <a href="{% url 'catalog' %}" class="inline-block mt-3 rounded-xl bg-zinc-800 px-6 py-2.5 font-bold text-sm active:scale-95 transition">
+        Ver ejercicios
+      </a>
+    </div>
+
+    <div class="mt-4 grid grid-cols-2 gap-3">
+      <div class="rounded-2xl bg-zinc-900 border border-zinc-800 p-4 text-center">
+        <p class="text-2xl font-black">{{ total_logs }}</p>
+        <p class="text-[10px] text-zinc-500 font-bold uppercase mt-0.5">Entrenamientos</p>
+      </div>
+      <div class="rounded-2xl bg-zinc-900 border border-zinc-800 p-4 text-center">
+        <p class="text-2xl font-black">{{ streak }} 🔥</p>
+        <p class="text-[10px] text-zinc-500 font-bold uppercase mt-0.5">Racha (días)</p>
+      </div>
+    </div>
+  </section>
+{% endif %}
 {% endblock %}
