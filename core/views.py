@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 from django.contrib import messages
 from django.contrib.auth import login
@@ -16,8 +16,8 @@ from .forms import (
     RegisterForm, RoutineItemForm, SiteConfigForm,
 )
 from .models import (
-    Category, DailyCheck, Exercise, Payment, Profile, RoutineItem, SiteConfig,
-    Subscription, WorkoutLog,
+    Category, DailyCheck, Exercise, Payment, Profile, RoutineItem, RoutinePlan,
+    RoutinePlanItem, SiteConfig, Subscription, WorkoutLog,
 )
 from .payments import create_preference, verify_and_apply
 from .planner import generate_plan
@@ -243,6 +243,92 @@ def routine_view(request, day=None):
         'active_tab': 'routine',
     }
     return render(request, 'user/routine.html', context)
+
+
+# ---------------------------------------------------------------- Historial de planes
+
+@login_required
+@require_POST
+def plan_save(request):
+    """Congela una copia de la rutina activa en el historial (cierre de semana/mes).
+
+    La rutina activa no se toca: el usuario sigue ajustando peso, series o
+    ejercicios para el siguiente periodo sobre los mismos RoutineItem.
+    """
+    items = list(RoutineItem.objects.filter(user=request.user).select_related('exercise'))
+    if not items:
+        messages.error(request, 'No tienes ejercicios en tu rutina para guardar.')
+        return redirect('routine')
+
+    period = request.POST.get('period', 'weekly')
+    if period not in ('weekly', 'monthly'):
+        period = 'weekly'
+
+    today = date.today()
+    last_plan = RoutinePlan.objects.filter(user=request.user).order_by('-ended_at').first()
+    if last_plan:
+        started_at = min(last_plan.ended_at + timedelta(days=1), today)
+    else:
+        started_at = min((i.created_at.date() for i in items), default=today)
+
+    label = request.POST.get('label', '').strip()[:60]
+    if not label:
+        label = (
+            f'Semana del {started_at:%d/%m}' if period == 'weekly'
+            else f'{today:%B %Y}'.capitalize()
+        )
+
+    plan = RoutinePlan.objects.create(
+        user=request.user, period=period, label=label,
+        started_at=started_at, ended_at=today,
+    )
+    RoutinePlanItem.objects.bulk_create([
+        RoutinePlanItem(
+            plan=plan, exercise=i.exercise, day=i.day, weight=i.weight,
+            sets=i.sets, reps=i.reps, duration_min=i.duration_min,
+            distance_km=i.distance_km, rest_seconds=i.rest_seconds,
+            note=i.note, order=i.order,
+        ) for i in items
+    ])
+    messages.success(
+        request,
+        f'"{label}" guardado en tu historial con {len(items)} ejercicio{"s" if len(items) != 1 else ""}. '
+        'Ahora puedes subir peso, cambiar series o agregar/quitar ejercicios para el siguiente periodo.',
+    )
+    return redirect('plan_detail', pk=plan.pk)
+
+
+@login_required
+def plan_history(request):
+    plans = RoutinePlan.objects.filter(user=request.user).annotate(num_items=Count('items'))
+    return render(request, 'user/plan_history.html', {
+        'plans': plans, 'active_tab': 'history',
+    })
+
+
+@login_required
+def plan_detail(request, pk):
+    plan = get_object_or_404(RoutinePlan, pk=pk, user=request.user)
+    plan_items = list(plan.items.select_related('exercise', 'exercise__category'))
+    by_day = {value: [] for value, _ in DAYS}
+    for item in plan_items:
+        by_day[item.day].append(item)
+    days = [
+        {'value': value, 'name': name, 'items': by_day[value]}
+        for value, name in DAYS if by_day[value]
+    ]
+    return render(request, 'user/plan_detail.html', {
+        'plan': plan, 'days': days, 'total_items': len(plan_items), 'active_tab': 'history',
+    })
+
+
+@login_required
+@require_POST
+def plan_delete(request, pk):
+    plan = get_object_or_404(RoutinePlan, pk=pk, user=request.user)
+    plan.delete()
+    messages.success(request, f'"{plan.label}" eliminado del historial.')
+    return redirect('plan_history')
 
 
 # ---------------------------------------------------------------- Plan automatico
@@ -493,8 +579,10 @@ def history(request):
         .annotate(times=Count('workoutlog'))
         .distinct()
     )
+    recent_plans = RoutinePlan.objects.filter(user=request.user)[:3]
     return render(request, 'user/history.html', {
-        'sessions': sessions, 'exercises': exercises, 'active_tab': 'history',
+        'sessions': sessions, 'exercises': exercises, 'recent_plans': recent_plans,
+        'active_tab': 'history',
     })
 
 

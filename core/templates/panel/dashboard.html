@@ -80,7 +80,7 @@
       {% if ex.image %}
         <img src="{{ ex.image.url }}" alt="{{ ex.title }}" class="w-10 h-10 rounded-lg object-cover bg-zinc-800">
       {% else %}
-        <div class="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center text-lg">{{ ex.category.icon|default:'💪' }}</div>
+        {% include 'partials/category_icon.html' with cat=ex.category cls="w-10 h-10" box=True %}
       {% endif %}
       <div class="min-w-0">
         <p class="text-sm font-semibold truncate">{{ ex.title }}</p>

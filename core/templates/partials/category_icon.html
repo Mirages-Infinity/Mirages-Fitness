@@ -1,0 +1,25 @@
+{% comment %}
+Icono de linea para una zona del cuerpo (Category), coloreado con cat.color.
+Recibe: cat (Category), cls (tamano), box (True = caja con fondo tintado,
+como en thumb.html; si no, el SVG suelto para poner junto a texto), mono
+(True = usa currentColor en vez de cat.color, para chips que ya cambian
+el color del texto segun estado seleccionado/no seleccionado).
+
+Uso junto a texto:  {% include 'partials/category_icon.html' with cat=category cls="w-4 h-4" %}
+Uso en caja/tile:   {% include 'partials/category_icon.html' with cat=category cls="w-14 h-14" box=True %}
+Uso en chip propio:  {% include 'partials/category_icon.html' with cat=category cls="w-4 h-4" mono=True %}
+{% endcomment %}
+{% if box %}
+<div class="{{ cls|default:'w-14 h-14' }} rounded-xl shrink-0 flex items-center justify-center relative overflow-hidden"
+     style="background: linear-gradient(135deg, {{ cat.color }}26, {{ cat.color }}0d); border: 1px solid {{ cat.color }}33;">
+  <svg viewBox="0 0 24 24" fill="none" stroke="{{ cat.color }}" stroke-width="1.7"
+       stroke-linecap="round" stroke-linejoin="round" class="w-1/2 h-1/2">
+    {% include 'partials/_category_icon_paths.html' %}
+  </svg>
+</div>
+{% else %}
+<svg viewBox="0 0 24 24" fill="none" stroke="{% if mono %}currentColor{% else %}{{ cat.color|default:'#a3e635' }}{% endif %}" stroke-width="2"
+     stroke-linecap="round" stroke-linejoin="round" class="{{ cls|default:'w-4 h-4' }} shrink-0 inline-block align-[-3px]">
+  {% include 'partials/_category_icon_paths.html' %}
+</svg>
+{% endif %}

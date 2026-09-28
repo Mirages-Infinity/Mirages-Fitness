@@ -8,7 +8,7 @@
   </a>
   <div class="min-w-0">
     <h1 class="text-xl font-black tracking-tight truncate">{{ exercise.title }}</h1>
-    <p class="text-xs text-zinc-500">{{ exercise.category.icon }} {{ exercise.category.name }}</p>
+    <p class="text-xs text-zinc-500 flex items-center gap-1">{% include 'partials/category_icon.html' with cat=exercise.category cls="w-3.5 h-3.5" %} {{ exercise.category.name }}</p>
   </div>
 </header>
 
@@ -45,6 +45,11 @@
           </div>
         {% endfor %}
       </div>
+      {% if chart|length < 2 %}
+        <p class="text-xs text-zinc-500 text-center mt-3 pt-3 border-t border-zinc-800">
+          📈 Entrena este ejercicio una vez más para empezar a ver tu curva de progreso.
+        </p>
+      {% endif %}
     </div>
   </section>
 

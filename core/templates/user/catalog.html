@@ -27,9 +27,9 @@
     </a>
     {% for cat in categories %}
       <a href="?cat={{ cat.pk }}{% if equipment %}&eq={{ equipment }}{% endif %}{% if query %}&q={{ query|urlencode }}{% endif %}"
-         class="shrink-0 rounded-xl px-4 py-2.5 text-sm font-bold transition border"
+         class="shrink-0 flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-bold transition border"
          style="{% if selected == cat.pk %}background: {{ cat.color }}; border-color: {{ cat.color }}; color: #09090b;{% else %}background: {{ cat.color }}14; border-color: {{ cat.color }}33; color: {{ cat.color }};{% endif %}">
-        {{ cat.icon }} {{ cat.name }}
+        {% include 'partials/category_icon.html' with cat=cat cls="w-4 h-4" mono=True %} {{ cat.name }}
       </a>
     {% endfor %}
   </div>

@@ -9,8 +9,8 @@ from core.models import Category, Exercise
 
 # nombre: (emoji, color, orden)
 CATS = {
-    'Pecho':    ('🫁', '#f97316', 1),
-    'Espalda':  ('🔙', '#3b82f6', 2),
+    'Pecho':    ('🎽', '#f97316', 1),
+    'Espalda':  ('🦅', '#3b82f6', 2),
     'Hombros':  ('🏔️', '#eab308', 3),
     'Biceps':   ('💪', '#a855f7', 4),
     'Triceps':  ('🦾', '#ec4899', 5),

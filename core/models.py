@@ -116,6 +116,65 @@ class RoutineItem(models.Model):
         return float(self.weight) * self.sets * self.reps
 
 
+class RoutinePlan(models.Model):
+    """Copia congelada de la rutina en un momento dado (cierre de semana o mes).
+
+    Se crea al presionar 'Guardar semana/mes': copia los RoutineItem
+    vigentes a ese momento como RoutinePlanItem, sin tocar la rutina activa
+    (que el usuario sigue editando para el siguiente periodo).
+    """
+    PERIODS = [
+        ('weekly', 'Semanal'),
+        ('monthly', 'Mensual'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='plans')
+    period = models.CharField('Periodo', max_length=10, choices=PERIODS, default='weekly')
+    label = models.CharField('Nombre', max_length=60, blank=True)
+    started_at = models.DateField('Inicio')
+    ended_at = models.DateField('Fin', default=date.today)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Plan guardado'
+        verbose_name_plural = 'Planes guardados'
+        ordering = ['-ended_at', '-id']
+
+    def __str__(self):
+        return f'{self.user.username} - {self.label or self.get_period_display()}'
+
+    @property
+    def total_items(self):
+        return len(self.items.all())
+
+
+class RoutinePlanItem(models.Model):
+    """Copia congelada de un RoutineItem al momento de guardar el plan."""
+    plan = models.ForeignKey(RoutinePlan, on_delete=models.CASCADE, related_name='items')
+    exercise = models.ForeignKey(Exercise, on_delete=models.CASCADE, verbose_name='Ejercicio')
+    day = models.IntegerField('Dia', choices=RoutineItem.DAYS)
+    weight = models.DecimalField('Peso (kg)', max_digits=6, decimal_places=1, default=0)
+    sets = models.PositiveIntegerField('Series', default=3)
+    reps = models.PositiveIntegerField('Repeticiones', default=10)
+    duration_min = models.PositiveIntegerField('Duracion (min)', null=True, blank=True)
+    distance_km = models.DecimalField('Distancia (km)', max_digits=6, decimal_places=2, null=True, blank=True)
+    rest_seconds = models.PositiveIntegerField('Descanso entre series (seg)', default=60)
+    note = models.CharField('Nota', max_length=120, blank=True)
+    order = models.PositiveIntegerField('Orden', default=0)
+
+    class Meta:
+        verbose_name = 'Ejercicio de plan guardado'
+        verbose_name_plural = 'Ejercicios de plan guardado'
+        ordering = ['day', 'order', 'id']
+
+    def __str__(self):
+        return f'{self.plan} - {self.get_day_display()} - {self.exercise.title}'
+
+    @property
+    def total_sets(self):
+        return 1 if self.exercise.kind == 'cardio' else self.sets
+
+
 class WorkoutLog(models.Model):
     """Registro historico: lo que el usuario realmente hizo en una fecha."""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='workout_logs')

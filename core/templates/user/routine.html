@@ -6,26 +6,74 @@
   <div>
     <h1 class="text-2xl font-black tracking-tight">Mi rutina</h1>
     <p class="text-sm text-zinc-400 mt-1">{{ total_items }} ejercicio{{ total_items|pluralize }} en la semana</p>
+    <a href="{% url 'plan_history' %}" class="inline-block text-xs font-bold text-zinc-500 mt-1">
+      📜 Historial de planes →
+    </a>
   </div>
-  <a href="{% url 'plan_wizard' %}"
-     class="shrink-0 rounded-xl bg-lime-400 px-4 py-2.5 text-sm font-bold text-zinc-950 active:scale-95 transition">
-    ✨ Auto
-  </a>
+  <div class="flex gap-2 shrink-0">
+    {% if total_items %}
+    <button type="button" id="savePlanBtn"
+       class="rounded-xl bg-zinc-900 border border-zinc-800 px-4 py-2.5 text-sm font-bold text-white active:scale-95 transition">
+      💾 Guardar
+    </button>
+    {% endif %}
+    <a href="{% url 'plan_wizard' %}"
+       class="rounded-xl bg-lime-400 px-4 py-2.5 text-sm font-bold text-zinc-950 active:scale-95 transition">
+      ✨ Auto
+    </a>
+  </div>
 </header>
+
+{# ---- Guardar plan actual en el historial (checkpoint de semana/mes) ---- #}
+{% if total_items %}
+<div id="savePlanModal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-zinc-950/80 backdrop-blur-sm px-6">
+  <div class="w-full max-w-sm rounded-3xl bg-zinc-900 border border-zinc-800 p-6 shadow-2xl">
+    <div class="mx-auto w-14 h-14 rounded-2xl flex items-center justify-center text-2xl bg-lime-400/10 border border-lime-400/20">💾</div>
+    <h3 class="text-lg font-black mt-4 text-center">Guardar plan actual</h3>
+    <p class="text-sm text-zinc-400 mt-1.5 text-center leading-relaxed">
+      Guarda una copia de tu rutina en el historial. Tu rutina sigue activa:
+      después puedes subir peso, cambiar series o agregar/quitar ejercicios
+      para el siguiente periodo.
+    </p>
+    <form method="post" action="{% url 'plan_save' %}" class="mt-5 space-y-3">
+      {% csrf_token %}
+      <div class="grid grid-cols-2 gap-2">
+        <label class="period-option cursor-pointer rounded-xl border-2 border-lime-400 bg-lime-400/10 p-3 text-center transition">
+          <input type="radio" name="period" value="weekly" class="sr-only" checked>
+          <span class="block text-sm font-bold">📅 Semanal</span>
+        </label>
+        <label class="period-option cursor-pointer rounded-xl border-2 border-zinc-700 p-3 text-center transition">
+          <input type="radio" name="period" value="monthly" class="sr-only">
+          <span class="block text-sm font-bold">🗓️ Mensual</span>
+        </label>
+      </div>
+      <input type="text" name="label" maxlength="60" placeholder="Nombre (opcional, ej: Semana 3)"
+             class="w-full rounded-xl bg-zinc-950 border border-zinc-700 px-4 py-3 text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-lime-400">
+      <div class="grid grid-cols-2 gap-2 pt-1">
+        <button type="button" id="savePlanCancel" class="rounded-xl bg-zinc-800 py-3.5 font-bold text-sm active:scale-95 transition">Cancelar</button>
+        <button type="submit" class="rounded-xl bg-lime-400 py-3.5 font-black text-sm text-zinc-950 active:scale-95 transition">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
 
 {# ---- Selector de dias ---- #}
 <div class="px-5">
-  <div class="flex gap-2 overflow-x-auto no-scrollbar pb-2">
-    {% for value, name, count in days %}
-      <a href="{% url 'routine_day' value %}"
-         class="shrink-0 rounded-xl px-3.5 py-2 text-center transition
-                {% if value == day %}bg-lime-400 text-zinc-950{% else %}bg-zinc-900 border border-zinc-800 text-zinc-400{% endif %}">
-        <span class="block text-sm font-bold">{{ name|slice:":3" }}</span>
-        <span class="block text-[10px] font-semibold {% if value == day %}opacity-70{% else %}text-zinc-600{% endif %}">
-          {% if count %}{{ count }} ej.{% else %}libre{% endif %}
-        </span>
-      </a>
-    {% endfor %}
+  <div class="relative">
+    <div class="flex gap-2 overflow-x-auto no-scrollbar pb-2">
+      {% for value, name, count in days %}
+        <a href="{% url 'routine_day' value %}"
+           class="shrink-0 rounded-xl px-3.5 py-2 text-center transition
+                  {% if value == day %}bg-lime-400 text-zinc-950{% else %}bg-zinc-900 border border-zinc-800 text-zinc-400{% endif %}">
+          <span class="block text-sm font-bold">{{ name|slice:":3" }}</span>
+          <span class="block text-[10px] font-semibold {% if value == day %}opacity-70{% else %}text-zinc-600{% endif %}">
+            {% if count %}{{ count }} ej.{% else %}libre{% endif %}
+          </span>
+        </a>
+      {% endfor %}
+    </div>
+    <div class="pointer-events-none absolute right-0 top-0 bottom-2 w-10 bg-gradient-to-l from-zinc-950 to-transparent"></div>
   </div>
 </div>
 
@@ -51,7 +99,7 @@
       {% for zone in zones %}
       <div>
         <div class="flex items-center gap-2 mb-2">
-          <span class="text-base">{{ zone.category.icon|default:'💪' }}</span>
+          {% include 'partials/category_icon.html' with cat=zone.category cls="w-4 h-4" %}
           <p class="text-xs font-black uppercase tracking-wider" style="color: {{ zone.category.color }}">
             {{ zone.category.name }}
           </p>
@@ -231,6 +279,37 @@
     const allOn = checks.every((c) => c.checked);
     checks.forEach((c) => { c.checked = !allOn; });
     refresh();
+  });
+})();
+
+// ---- Guardar plan (checkpoint de semana/mes) ----
+(function () {
+  const openBtn = document.getElementById('savePlanBtn');
+  if (!openBtn) return;
+  const modal = document.getElementById('savePlanModal');
+  const cancelBtn = document.getElementById('savePlanCancel');
+  const options = [...document.querySelectorAll('.period-option')];
+
+  function openModal() {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+  function closeModal() {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+
+  openBtn.addEventListener('click', openModal);
+  cancelBtn.addEventListener('click', closeModal);
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+  options.forEach((label) => {
+    label.addEventListener('click', () => {
+      options.forEach((l) => l.classList.remove('border-lime-400', 'bg-lime-400/10'));
+      options.forEach((l) => l.classList.add('border-zinc-700'));
+      label.classList.remove('border-zinc-700');
+      label.classList.add('border-lime-400', 'bg-lime-400/10');
+    });
   });
 })();
 </script>

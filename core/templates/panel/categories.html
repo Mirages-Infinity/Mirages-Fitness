@@ -19,7 +19,7 @@
     <div class="space-y-3">
       {% for cat in categories %}
       <div class="flex items-center gap-3 rounded-2xl bg-zinc-900 border border-zinc-800 p-3.5">
-        <div class="w-11 h-11 rounded-xl bg-zinc-800 flex items-center justify-center text-2xl shrink-0">{{ cat.icon|default:'💪' }}</div>
+        {% include 'partials/category_icon.html' with cat=cat cls="w-11 h-11" box=True %}
         <div class="flex-1 min-w-0">
           <p class="font-bold text-sm">{{ cat.name }}</p>
           <p class="text-xs text-zinc-500 mt-0.5">{{ cat.num }} ejercicio{{ cat.num|pluralize }}</p>

@@ -7,31 +7,50 @@
   <p class="text-sm text-zinc-400 mt-1">Historial de todos tus entrenamientos</p>
 </header>
 
-{# ---- Progreso por ejercicio ---- #}
-{% if exercises %}
-<section class="px-5 mb-6">
-  <h2 class="text-lg font-bold mb-3">Progreso por ejercicio</h2>
-  <div class="flex gap-2.5 overflow-x-auto no-scrollbar pb-2">
-    {% for ex in exercises %}
-      <a href="{% url 'progress' ex.pk %}" class="shrink-0 w-32 rounded-2xl bg-zinc-900 border border-zinc-800 overflow-hidden active:scale-95 transition">
-        {% if ex.image %}
-          <img src="{{ ex.image.url }}" alt="{{ ex.title }}" class="w-full h-20 object-cover bg-zinc-800">
-        {% else %}
-          <div class="w-full h-20 bg-zinc-800 flex items-center justify-center text-3xl">{{ ex.category.icon|default:'💪' }}</div>
-        {% endif %}
-        <div class="p-2.5">
-          <p class="font-bold text-xs leading-tight truncate">{{ ex.title }}</p>
-          <p class="text-[10px] text-lime-400 font-semibold mt-1">{{ ex.times }} registro{{ ex.times|pluralize }}</p>
-        </div>
-      </a>
-    {% endfor %}
+{# ---- Sub-tabs ---- #}
+<div class="px-5 mb-5">
+  <div class="grid grid-cols-3 gap-1.5 rounded-xl bg-zinc-900 border border-zinc-800 p-1">
+    <button type="button" data-tab-btn="ejercicios"
+            class="tab-btn rounded-lg py-2 text-xs font-bold transition">Ejercicios</button>
+    <button type="button" data-tab-btn="sesiones"
+            class="tab-btn rounded-lg py-2 text-xs font-bold transition">Sesiones</button>
+    <button type="button" data-tab-btn="planes"
+            class="tab-btn rounded-lg py-2 text-xs font-bold transition">Planes</button>
   </div>
+</div>
+
+{# ---- Progreso por ejercicio ---- #}
+<section data-tab="ejercicios" class="px-5 mb-6">
+  {% if exercises %}
+    <div class="flex gap-2.5 overflow-x-auto no-scrollbar pb-2">
+      {% for ex in exercises %}
+        <a href="{% url 'progress' ex.pk %}" class="shrink-0 w-32 rounded-2xl bg-zinc-900 border border-zinc-800 overflow-hidden active:scale-95 transition">
+          {% if ex.image %}
+            <img src="{{ ex.image.url }}" alt="{{ ex.title }}" class="w-full h-20 object-cover bg-zinc-800">
+          {% else %}
+            <div class="w-full h-20 flex items-center justify-center"
+                 style="background: linear-gradient(135deg, {{ ex.category.color }}26, {{ ex.category.color }}0d);">
+              {% include 'partials/category_icon.html' with cat=ex.category cls="w-8 h-8" %}
+            </div>
+          {% endif %}
+          <div class="p-2.5">
+            <p class="font-bold text-xs leading-tight truncate">{{ ex.title }}</p>
+            <p class="text-[10px] text-lime-400 font-semibold mt-1">{{ ex.times }} registro{{ ex.times|pluralize }}</p>
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="rounded-2xl border border-dashed border-zinc-800 p-8 text-center">
+      <span class="text-4xl">📈</span>
+      <p class="font-bold mt-3">Aún no hay progreso por ejercicio</p>
+      <p class="text-sm text-zinc-500 mt-1">Registra un entrenamiento para empezar a ver tu evolución</p>
+    </div>
+  {% endif %}
 </section>
-{% endif %}
 
 {# ---- Sesiones ---- #}
-<section class="px-5">
-  <h2 class="text-lg font-bold mb-3">Sesiones</h2>
+<section data-tab="sesiones" class="px-5 mb-6">
   {% if sessions %}
     <div class="space-y-3">
       {% for s in sessions %}
@@ -73,4 +92,62 @@
     </div>
   {% endif %}
 </section>
+
+{# ---- Planes guardados ---- #}
+<section data-tab="planes" class="px-5 mb-6">
+  <div class="flex items-center justify-between mb-3">
+    <a href="{% url 'plan_history' %}" class="text-xs font-bold text-lime-400 ml-auto">Ver historial completo →</a>
+  </div>
+  {% if recent_plans %}
+    <div class="space-y-2.5">
+      {% for plan in recent_plans %}
+      <a href="{% url 'plan_detail' plan.pk %}"
+         class="flex items-center justify-between rounded-2xl bg-zinc-900 border border-zinc-800 p-3.5 active:scale-[.98] transition">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <span class="text-base">{% if plan.period == 'monthly' %}🗓️{% else %}📅{% endif %}</span>
+          <div class="min-w-0">
+            <p class="font-bold text-sm truncate">{{ plan.label }}</p>
+            <p class="text-[11px] text-zinc-500">{{ plan.ended_at|date:"d/m/Y" }}</p>
+          </div>
+        </div>
+        <svg class="w-4 h-4 text-zinc-600 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 18l6-6-6-6"/></svg>
+      </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="rounded-2xl border border-dashed border-zinc-800 p-8 text-center">
+      <span class="text-4xl">📜</span>
+      <p class="font-bold mt-3">Aún no guardaste ningún plan</p>
+      <p class="text-sm text-zinc-500 mt-1">
+        Ve a "Rutina" y presiona 💾 Guardar antes de subir peso o cambiar ejercicios.
+      </p>
+    </div>
+  {% endif %}
+</section>
+
+<script>
+(function () {
+  const btns = [...document.querySelectorAll('.tab-btn')];
+  const sections = [...document.querySelectorAll('[data-tab]')];
+  const STORAGE_KEY = 'fittrack:progressTab';
+
+  function activate(name) {
+    btns.forEach((b) => {
+      const on = b.dataset.tabBtn === name;
+      b.classList.toggle('bg-lime-400', on);
+      b.classList.toggle('text-zinc-950', on);
+      b.classList.toggle('text-zinc-400', !on);
+    });
+    sections.forEach((s) => { s.classList.toggle('hidden', s.dataset.tab !== name); });
+    try { sessionStorage.setItem(STORAGE_KEY, name); } catch (e) {}
+  }
+
+  btns.forEach((b) => b.addEventListener('click', () => activate(b.dataset.tabBtn)));
+
+  let initial = 'ejercicios';
+  try { initial = sessionStorage.getItem(STORAGE_KEY) || initial; } catch (e) {}
+  if (!btns.some((b) => b.dataset.tabBtn === initial)) initial = 'ejercicios';
+  activate(initial);
+})();
+</script>
 {% endblock %}

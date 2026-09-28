@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% block title %}{{ plan.label }} · FitTrack{% endblock %}
+{% block content %}
+
+<header class="px-5 pt-8 pb-4">
+  <a href="{% url 'plan_history' %}" class="inline-flex items-center gap-1 text-xs font-bold text-zinc-500 mb-3">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+    Historial de planes
+  </a>
+  <div class="flex items-start justify-between gap-3">
+    <div class="min-w-0">
+      <h1 class="text-2xl font-black tracking-tight truncate">{{ plan.label }}</h1>
+      <p class="text-sm text-zinc-400 mt-1">
+        {% if plan.period == 'monthly' %}🗓️ Mensual{% else %}📅 Semanal{% endif %}
+        · {{ plan.started_at|date:"d/m/Y" }} – {{ plan.ended_at|date:"d/m/Y" }}
+        · {{ total_items }} ejercicio{{ total_items|pluralize }}
+      </p>
+    </div>
+    <form method="post" action="{% url 'plan_delete' plan.pk %}" class="shrink-0"
+          data-confirm="Se eliminará &quot;{{ plan.label }}&quot; de tu historial. Esta acción no se puede deshacer."
+          data-confirm-title="¿Eliminar este plan?" data-confirm-ok="Eliminar">
+      {% csrf_token %}
+      <button type="submit" class="rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-xs font-bold text-red-400 active:scale-95 transition">✕</button>
+    </form>
+  </div>
+</header>
+
+<section class="px-5">
+  {% if days %}
+    <div class="space-y-5">
+      {% for d in days %}
+      <div>
+        <p class="text-xs font-black uppercase tracking-wider text-zinc-500 mb-2">{{ d.name }}</p>
+        <div class="space-y-2.5">
+          {% for item in d.items %}
+          <div class="rounded-2xl bg-zinc-900 border border-zinc-800 p-3">
+            <div class="flex items-center gap-3">
+              {% include 'partials/thumb.html' with ex=item.exercise cls="w-12 h-12" %}
+              <div class="flex-1 min-w-0">
+                <p class="font-bold text-sm truncate">{{ item.exercise.title }}</p>
+                <p class="text-[11px] text-zinc-500 mt-0.5">{{ item.exercise.category.name }}</p>
+              </div>
+              <div class="flex gap-3.5 text-center shrink-0">
+                {% if item.exercise.kind == 'cardio' %}
+                  <div>
+                    <p class="text-sm font-black text-lime-400">{{ item.duration_min|default:"–" }}</p>
+                    <p class="text-[9px] text-zinc-500 font-bold uppercase">min</p>
+                  </div>
+                  <div>
+                    <p class="text-sm font-black">{% if item.distance_km %}{{ item.distance_km|floatformat:"-2" }}{% else %}–{% endif %}</p>
+                    <p class="text-[9px] text-zinc-500 font-bold uppercase">km</p>
+                  </div>
+                {% else %}
+                  <div>
+                    <p class="text-sm font-black text-lime-400">{{ item.weight|floatformat:"-1" }}</p>
+                    <p class="text-[9px] text-zinc-500 font-bold uppercase">kg</p>
+                  </div>
+                  <div>
+                    <p class="text-sm font-black">{{ item.sets }}</p>
+                    <p class="text-[9px] text-zinc-500 font-bold uppercase">series</p>
+                  </div>
+                  <div>
+                    <p class="text-sm font-black">{{ item.reps }}</p>
+                    <p class="text-[9px] text-zinc-500 font-bold uppercase">reps</p>
+                  </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="rounded-2xl border border-dashed border-zinc-800 p-8 text-center">
+      <span class="text-4xl">📋</span>
+      <p class="font-bold mt-3">Este plan no tiene ejercicios</p>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

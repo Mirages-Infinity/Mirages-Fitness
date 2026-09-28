@@ -1,0 +1,26 @@
+{% comment %}
+Trazos SVG (viewBox 0 0 24 24) para cada zona del cuerpo, en el mismo
+estilo de linea que los iconos de equipamiento de thumb.html. Incluido
+por category_icon.html; no se usa directo. Recibe: cat (Category).
+{% endcomment %}
+{% if cat.name == 'Pecho' %}
+  <path d="M12 3l7 3v5c0 5-3.2 8-7 10-3.8-2-7-5-7-10V6l7-3z"/>
+{% elif cat.name == 'Espalda' %}
+  <path d="M4 15l8-5 8 5M4 20l8-5 8 5"/>
+{% elif cat.name == 'Hombros' %}
+  <path d="M2 16a5 5 0 0110 0M12 16a5 5 0 0110 0"/>
+{% elif cat.name == 'Biceps' %}
+  <path d="M12 20V9M9 9h6l-3-5-3 5z"/>
+{% elif cat.name == 'Triceps' %}
+  <path d="M12 4v11M9 15h6l-3 5-3-5z"/>
+{% elif cat.name == 'Piernas' %}
+  <path d="M7 3h10M9 3v9l-2 9M15 3v9l2 9"/>
+{% elif cat.name == 'Gluteos' %}
+  <path d="M4 19a8 6 0 0116 0"/>
+{% elif cat.name == 'Abdomen' %}
+  <path d="M8 4h3v4H8zM13 4h3v4h-3zM8 10h3v4H8zM13 10h3v4h-3zM8 16h3v4H8zM13 16h3v4h-3z"/>
+{% elif cat.name == 'Cardio' %}
+  <path d="M3 12h4l2-7 4 14 2-7h6"/>
+{% else %}
+  <path d="M12 3l2.4 5.6L20 10l-4 4 1 6-5-2.8L7 20l1-6-4-4 5.6-1.4L12 3z"/>
+{% endif %}

@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}Historial de planes · FitTrack{% endblock %}
+{% block content %}
+
+<header class="px-5 pt-8 pb-4">
+  <h1 class="text-2xl font-black tracking-tight">Historial de planes</h1>
+  <p class="text-sm text-zinc-400 mt-1">Cada vez que guardas tu rutina queda un registro aquí</p>
+</header>
+
+<section class="px-5">
+  {% if plans %}
+    <div class="space-y-3">
+      {% for plan in plans %}
+      <a href="{% url 'plan_detail' plan.pk %}"
+         class="block rounded-2xl bg-zinc-900 border border-zinc-800 p-4 active:scale-[.98] transition">
+        <div class="flex items-center justify-between">
+          <div class="min-w-0">
+            <div class="flex items-center gap-2">
+              <span class="text-base">{% if plan.period == 'monthly' %}🗓️{% else %}📅{% endif %}</span>
+              <p class="font-bold text-sm truncate">{{ plan.label }}</p>
+            </div>
+            <p class="text-xs text-zinc-500 mt-1">
+              {{ plan.started_at|date:"d/m/Y" }} – {{ plan.ended_at|date:"d/m/Y" }}
+              · {{ plan.num_items }} ejercicio{{ plan.num_items|pluralize }}
+            </p>
+          </div>
+          <svg class="w-5 h-5 text-zinc-600 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 18l6-6-6-6"/></svg>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="rounded-2xl border border-dashed border-zinc-800 p-8 text-center">
+      <span class="text-4xl">📜</span>
+      <p class="font-bold mt-3">Aún no guardaste ningún plan</p>
+      <p class="text-sm text-zinc-500 mt-1">
+        Ve a "Rutina" y presiona 💾 para guardar una copia de tu plan actual
+        antes de subir peso o cambiar ejercicios.
+      </p>
+      <a href="{% url 'routine' %}"
+         class="inline-block mt-4 rounded-xl bg-lime-400 px-5 py-2.5 text-sm font-bold text-zinc-950 active:scale-95 transition">
+        Ir a mi rutina
+      </a>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

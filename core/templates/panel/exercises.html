@@ -22,9 +22,9 @@
               {% if not selected %}bg-lime-400 text-zinc-950{% else %}bg-zinc-900 border border-zinc-800 text-zinc-400{% endif %}">Todos</a>
     {% for cat in categories %}
       <a href="?cat={{ cat.pk }}"
-         class="shrink-0 rounded-xl px-4 py-2 text-sm font-bold transition
+         class="shrink-0 flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-bold transition
                 {% if selected == cat.pk %}bg-lime-400 text-zinc-950{% else %}bg-zinc-900 border border-zinc-800 text-zinc-400{% endif %}">
-        {{ cat.icon }} {{ cat.name }}
+        {% include 'partials/category_icon.html' with cat=cat cls="w-4 h-4" mono=True %} {{ cat.name }}
       </a>
     {% endfor %}
   </div>
@@ -38,7 +38,7 @@
         {% if ex.image %}
           <img src="{{ ex.image.url }}" alt="{{ ex.title }}" class="w-14 h-14 rounded-xl object-cover bg-zinc-800 shrink-0">
         {% else %}
-          <div class="w-14 h-14 rounded-xl bg-zinc-800 flex items-center justify-center text-2xl shrink-0">{{ ex.category.icon|default:'💪' }}</div>
+          {% include 'partials/category_icon.html' with cat=ex.category cls="w-14 h-14" box=True %}
         {% endif %}
         <div class="flex-1 min-w-0">
           <p class="font-bold text-sm truncate">{{ ex.title }}</p>
