@@ -32,8 +32,23 @@
            data-rest="{{ item.rest_seconds }}" data-name="{{ item.exercise.title }}"
            data-cardio="{% if item.exercise.kind == 'cardio' %}1{% else %}0{% endif %}">
 
+    {# ---- Demostracion (gif/imagen del ejercicio) ---- #}
+    {% if item.exercise.image %}
+      <button type="button" class="gif-trigger relative w-full h-44 block active:opacity-90 transition"
+              data-src="{{ item.exercise.image.url }}" data-name="{{ item.exercise.title }}">
+        <img src="{{ item.exercise.image.url }}" alt="{{ item.exercise.title }}" class="w-full h-44 object-cover bg-zinc-800">
+        <span class="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-zinc-950/70 backdrop-blur flex items-center justify-center">
+          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
+        </span>
+      </button>
+    {% else %}
+      <div class="w-full h-24 flex items-center justify-center"
+           style="background: linear-gradient(135deg, {{ item.exercise.category.color }}26, {{ item.exercise.category.color }}0d);">
+        {% include 'partials/category_icon.html' with cat=item.exercise.category cls="w-10 h-10" %}
+      </div>
+    {% endif %}
+
     <div class="flex items-center gap-3 p-3">
-      {% include 'partials/thumb.html' with ex=item.exercise cls="w-14 h-14" %}
       <div class="flex-1 min-w-0">
         <p class="font-bold text-sm leading-tight">{{ item.exercise.title }}</p>
         <div class="flex items-center gap-2 mt-1">
@@ -146,6 +161,19 @@
     <button type="button" id="restSkip" class="mt-3 w-full rounded-xl bg-lime-400 py-3.5 font-black text-zinc-950 active:scale-[.98] transition">
       SALTAR DESCANSO
     </button>
+  </div>
+</div>
+
+{# ---- Gif del ejercicio a pantalla completa ---- #}
+<div id="gifModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-zinc-950/95 backdrop-blur-xl px-5">
+  <div class="w-full max-w-md">
+    <div class="flex items-center justify-between mb-3">
+      <p id="gifModalName" class="font-bold text-sm truncate pr-3"></p>
+      <button type="button" id="gifModalClose" class="w-9 h-9 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 active:scale-95 transition shrink-0">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <img id="gifModalImg" src="" alt="" class="w-full rounded-2xl bg-zinc-900">
   </div>
 </div>
 
@@ -335,6 +363,29 @@
     pauseBtn.textContent = paused ? 'Seguir' : 'Pausar';
   });
   document.getElementById('restSkip').addEventListener('click', stopRest);
+
+  // ---------------------------------------------------------- Gif a pantalla completa
+  const gifModal = document.getElementById('gifModal');
+  const gifModalImg = document.getElementById('gifModalImg');
+  const gifModalName = document.getElementById('gifModalName');
+
+  function openGif(src, name) {
+    gifModalImg.src = src;
+    gifModalImg.alt = name;
+    gifModalName.textContent = name;
+    gifModal.classList.remove('hidden');
+    gifModal.classList.add('flex');
+  }
+  function closeGif() {
+    gifModal.classList.add('hidden');
+    gifModal.classList.remove('flex');
+    gifModalImg.src = '';
+  }
+  document.querySelectorAll('.gif-trigger').forEach((btn) => {
+    btn.addEventListener('click', () => openGif(btn.dataset.src, btn.dataset.name));
+  });
+  document.getElementById('gifModalClose').addEventListener('click', closeGif);
+  gifModal.addEventListener('click', (e) => { if (e.target === gifModal) closeGif(); });
 
   // ---------------------------------------------------------- Selector de descanso
   const sheet = document.getElementById('restSheet');
