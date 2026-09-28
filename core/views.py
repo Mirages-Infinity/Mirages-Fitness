@@ -499,16 +499,27 @@ def exercise_add(request, pk):
         days = request.POST.getlist('days')
         if form.is_valid() and days:
             profile = get_profile(request.user)
+            added, updated = [], []
             for d in days:
-                item = RoutineItem(
-                    user=request.user, exercise=exercise, day=int(d),
-                    rest_seconds=profile.default_rest,
+                d = int(d)
+                # Si el ejercicio ya esta en ese dia, lo actualiza en vez de
+                # duplicarlo (p. ej. si el usuario vuelve al catalogo a
+                # cambiarle el peso o las series).
+                item, created = RoutineItem.objects.get_or_create(
+                    user=request.user, exercise=exercise, day=d,
+                    defaults={'rest_seconds': profile.default_rest},
                 )
                 for field, value in form.cleaned_data.items():
                     setattr(item, field, value)
                 item.save()
-            names = ', '.join(dict(DAYS)[int(d)] for d in sorted(days))
-            messages.success(request, f'{exercise.title} agregado a: {names}.')
+                (added if created else updated).append(d)
+
+            parts = []
+            if added:
+                parts.append('agregado a ' + ', '.join(dict(DAYS)[d] for d in sorted(added)))
+            if updated:
+                parts.append('actualizado en ' + ', '.join(dict(DAYS)[d] for d in sorted(updated)) + ' (ya estaba en tu rutina)')
+            messages.success(request, f'{exercise.title}: ' + '; '.join(parts) + '.')
             return redirect('routine_day', day=int(days[0]))
         if not days:
             messages.error(request, 'Selecciona al menos un dia.')
