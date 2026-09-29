@@ -1,9 +1,17 @@
+from decimal import Decimal, ROUND_HALF_UP
+
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 
 from .models import Category, Exercise, Profile, RoutineItem, SiteConfig
 from .validators import normalize_rut
+
+
+def kg_from_lb(lb_value):
+    """Decimal en kg con 1 decimal, sin el error de precision de los float."""
+    kg = Decimal(str(lb_value)) / Decimal('2.20462')
+    return kg.quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
 
 INPUT_CLASS = (
     'w-full rounded-xl bg-zinc-900 border border-zinc-700 px-4 py-3 '
@@ -118,6 +126,9 @@ REST_CHOICES = [
 ]
 
 
+KG_TO_LB = 2.20462
+
+
 class RoutineItemForm(forms.ModelForm):
     """Ejercicios de fuerza: peso, series, repeticiones y descanso."""
     rest_seconds = forms.TypedChoiceField(
@@ -143,6 +154,22 @@ class RoutineItemForm(forms.ModelForm):
             }),
         }
 
+    def __init__(self, *args, unit='kg', **kwargs):
+        # El peso siempre se guarda en kg; si el usuario prefiere libras,
+        # el campo se muestra y se recibe en lb y se convierte al guardar.
+        self.unit = unit
+        super().__init__(*args, **kwargs)
+        if unit == 'lb':
+            self.fields['weight'].label = 'Peso (lb)'
+            if self.initial.get('weight') is not None:
+                self.initial['weight'] = round(float(self.initial['weight']) * KG_TO_LB, 1)
+
+    def clean_weight(self):
+        weight = self.cleaned_data['weight']
+        if self.unit == 'lb':
+            return kg_from_lb(weight)
+        return weight
+
 
 class CardioItemForm(forms.ModelForm):
     """Ejercicios de cardio: duracion y distancia."""
@@ -161,7 +188,9 @@ class CardioItemForm(forms.ModelForm):
             }),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, unit='kg', **kwargs):
+        # Acepta 'unit' para tener la misma firma que RoutineItemForm
+        # (no tiene campo de peso, asi que no hace nada con el valor).
         super().__init__(*args, **kwargs)
         self.fields['duration_min'].required = True
         self.fields['duration_min'].initial = 30
@@ -190,6 +219,46 @@ class PlanWizardForm(forms.Form):
     )
 
 
+class QuickLogForm(forms.Form):
+    """Registro suelto de un ejercicio fuera de la rutina estructurada."""
+    exercise = forms.ModelChoiceField(
+        label='Ejercicio', queryset=Exercise.objects.select_related('category').order_by('title'),
+        widget=forms.Select(attrs={'class': INPUT_CLASS, 'id': 'id_exercise'}),
+    )
+    weight = forms.DecimalField(
+        label='Peso', required=False, min_value=0, initial=0,
+        widget=forms.NumberInput(attrs={'class': INPUT_CLASS, 'step': '0.5', 'inputmode': 'decimal'}),
+    )
+    sets = forms.IntegerField(
+        label='Series', required=False, min_value=1, initial=3,
+        widget=forms.NumberInput(attrs={'class': INPUT_CLASS, 'inputmode': 'numeric'}),
+    )
+    reps = forms.IntegerField(
+        label='Repeticiones', required=False, min_value=1, initial=10,
+        widget=forms.NumberInput(attrs={'class': INPUT_CLASS, 'inputmode': 'numeric'}),
+    )
+    duration_min = forms.IntegerField(
+        label='Duración (min)', required=False, min_value=1,
+        widget=forms.NumberInput(attrs={'class': INPUT_CLASS, 'inputmode': 'numeric'}),
+    )
+    distance_km = forms.DecimalField(
+        label='Distancia (km)', required=False, min_value=0,
+        widget=forms.NumberInput(attrs={'class': INPUT_CLASS, 'step': '0.1', 'inputmode': 'decimal'}),
+    )
+
+    def __init__(self, *args, unit='kg', **kwargs):
+        self.unit = unit
+        super().__init__(*args, **kwargs)
+        if unit == 'lb':
+            self.fields['weight'].label = 'Peso (lb)'
+
+    def clean_weight(self):
+        weight = self.cleaned_data.get('weight') or 0
+        if self.unit == 'lb':
+            return kg_from_lb(weight)
+        return weight
+
+
 class ProfileForm(forms.ModelForm):
     """Preferencias de entrenamiento del usuario."""
     default_rest = forms.TypedChoiceField(
@@ -199,11 +268,27 @@ class ProfileForm(forms.ModelForm):
 
     class Meta:
         model = Profile
-        fields = ['goal', 'level', 'days_per_week', 'default_rest']
+        fields = [
+            'goal', 'level', 'days_per_week', 'default_rest', 'unit',
+            'bench_1rm', 'squat_1rm', 'deadlift_1rm',
+        ]
         widgets = {
             'goal': forms.Select(attrs={'class': INPUT_CLASS}),
             'level': forms.Select(attrs={'class': INPUT_CLASS}),
             'days_per_week': forms.NumberInput(attrs={
                 'class': INPUT_CLASS, 'min': '1', 'max': '6', 'inputmode': 'numeric',
+            }),
+            'unit': forms.Select(attrs={'class': INPUT_CLASS}),
+            'bench_1rm': forms.NumberInput(attrs={
+                'class': INPUT_CLASS, 'step': '0.5', 'min': '0', 'inputmode': 'decimal',
+                'placeholder': 'Ej: 80',
+            }),
+            'squat_1rm': forms.NumberInput(attrs={
+                'class': INPUT_CLASS, 'step': '0.5', 'min': '0', 'inputmode': 'decimal',
+                'placeholder': 'Ej: 100',
+            }),
+            'deadlift_1rm': forms.NumberInput(attrs={
+                'class': INPUT_CLASS, 'step': '0.5', 'min': '0', 'inputmode': 'decimal',
+                'placeholder': 'Ej: 120',
             }),
         }

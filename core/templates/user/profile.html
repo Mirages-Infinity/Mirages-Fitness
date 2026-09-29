@@ -61,10 +61,52 @@
       {{ form.default_rest }}
     </div>
   </div>
+  <div>
+    <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Unidad de peso</label>
+    {{ form.unit }}
+  </div>
+
+  <h2 class="text-lg font-bold pt-2">Tus 1RM (opcional)</h2>
+  <p class="text-xs text-zinc-500 -mt-3">Para calcular tus porcentajes de trabajo automáticamente.</p>
+  <div class="grid grid-cols-3 gap-3">
+    <div>
+      <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Banca</label>
+      {{ form.bench_1rm }}
+    </div>
+    <div>
+      <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Sentadilla</label>
+      {{ form.squat_1rm }}
+    </div>
+    <div>
+      <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">P. muerto</label>
+      {{ form.deadlift_1rm }}
+    </div>
+  </div>
+
   <button type="submit" class="w-full rounded-xl bg-lime-400 py-3.5 font-black text-zinc-950 active:scale-[.98] transition">
     Guardar preferencias
   </button>
 </form>
+
+{# ---- Calculadora de porcentajes ---- #}
+{% if pct_table %}
+<section class="px-5 mt-6">
+  <h2 class="text-lg font-bold mb-3">Calculadora de porcentajes</h2>
+  <div class="rounded-2xl bg-zinc-900 border border-zinc-800 overflow-hidden">
+    <div class="grid grid-cols-4 text-[10px] font-bold uppercase text-zinc-500 px-4 py-2 border-b border-zinc-800">
+      <span>%</span><span>Banca</span><span>Sent.</span><span>P. muerto</span>
+    </div>
+    {% for row in pct_table %}
+    <div class="grid grid-cols-4 text-sm px-4 py-2 {% if not forloop.last %}border-b border-zinc-800/60{% endif %}">
+      <span class="font-bold text-zinc-500">{{ row.pct }}%</span>
+      <span class="font-semibold">{% if row.bench %}{{ row.bench }}{% else %}–{% endif %}</span>
+      <span class="font-semibold">{% if row.squat %}{{ row.squat }}{% else %}–{% endif %}</span>
+      <span class="font-semibold">{% if row.deadlift %}{{ row.deadlift }}{% else %}–{% endif %}</span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
 
 {# ---- Acciones ---- #}
 <section class="px-5 mt-6 space-y-3">
@@ -73,6 +115,15 @@
     <div class="flex-1">
       <p class="font-bold text-sm">Crear rutina automática</p>
       <p class="text-xs text-zinc-500 mt-0.5">Genera un plan nuevo con tus preferencias</p>
+    </div>
+    <svg class="w-5 h-5 text-zinc-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+  </a>
+
+  <a href="{% url 'quick_log' %}" class="flex items-center gap-4 rounded-2xl bg-zinc-900 border border-zinc-800 p-4 active:scale-[.98] transition">
+    <div class="w-11 h-11 rounded-xl bg-sky-400/10 border border-sky-400/20 flex items-center justify-center text-xl">⚡</div>
+    <div class="flex-1">
+      <p class="font-bold text-sm">Registro rápido</p>
+      <p class="text-xs text-zinc-500 mt-0.5">Anota algo hecho fuera de tu rutina de hoy</p>
     </div>
     <svg class="w-5 h-5 text-zinc-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
   </a>

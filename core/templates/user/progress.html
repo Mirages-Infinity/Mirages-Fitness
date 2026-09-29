@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load fittrack_extras %}
 {% block title %}Progreso · {{ exercise.title }} · FitTrack{% endblock %}
 {% block content %}
 
@@ -28,6 +29,21 @@
       <p class="text-[10px] text-zinc-500 font-semibold uppercase mt-0.5">Mejora ({{ unit }})</p>
     </div>
   </div>
+
+  {% if one_rm %}
+  <div class="px-5 mb-6">
+    <div class="rounded-2xl bg-gradient-to-br from-purple-500/10 to-purple-500/5 border border-purple-500/30 px-4 py-3.5 flex items-center justify-between">
+      <div>
+        <p class="text-xs font-bold text-purple-400 uppercase tracking-wide">1RM estimado</p>
+        <p class="text-[11px] text-zinc-500 mt-0.5">Formula de Epley — referencial, no lo entrenes en frío</p>
+      </div>
+      <div class="text-right shrink-0">
+        <p class="text-xl font-black text-purple-300">{{ one_rm }} {{ weight_unit }}</p>
+        {% if best_one_rm > one_rm %}<p class="text-[10px] text-zinc-500">🏆 mejor: {{ best_one_rm }} {{ weight_unit }}</p>{% endif %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
 
   {# ---- Grafico de barras ---- #}
   <section class="px-5 mb-6">
@@ -65,7 +81,7 @@
             <p class="text-sm font-black text-lime-400">{{ log.duration_min|default:"–" }} min</p>
             {% if log.distance_km %}<p class="text-[11px] text-zinc-500">{{ log.distance_km|floatformat:"-2" }} km</p>{% endif %}
           {% else %}
-            <p class="text-sm font-black text-lime-400">{{ log.weight|floatformat:"-1" }} kg</p>
+            <p class="text-sm font-black text-lime-400">{{ log.weight|to_unit:weight_unit|floatformat:"-1" }} {{ weight_unit }}</p>
             <p class="text-[11px] text-zinc-500">{{ log.sets }} series × {{ log.reps }} reps</p>
           {% endif %}
         </div>

@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load fittrack_extras %}
 {% block title %}Entrenando · FitTrack{% endblock %}
 {% block content %}
 
@@ -21,6 +22,9 @@
     </div>
     <div class="h-1 bg-zinc-800">
       <div id="dayBar" class="h-full bg-gradient-to-r from-lime-500 to-lime-300 transition-all duration-500" style="width: {{ progress_pct }}%"></div>
+    </div>
+    <div id="offlineBadge" class="hidden bg-amber-400/10 border-b border-amber-400/30 px-4 py-1.5 text-center">
+      <p class="text-[11px] font-bold text-amber-400">📴 Sin conexión — se guarda cuando vuelva</p>
     </div>
   </header>
 
@@ -70,8 +74,8 @@
             </div>
           {% else %}
             <div class="flex-1 rounded-xl bg-zinc-900 border border-zinc-800 px-3 py-2 text-center">
-              <p class="text-base font-black text-lime-400">{{ item.weight|floatformat:"-1" }}</p>
-              <p class="text-[9px] text-zinc-500 font-bold uppercase">kg</p>
+              <p class="text-base font-black text-lime-400 weight-display">{{ item.weight|to_unit:weight_unit|floatformat:"-1" }}</p>
+              <p class="text-[9px] text-zinc-500 font-bold uppercase">{{ weight_unit }}</p>
             </div>
             <div class="flex-1 rounded-xl bg-zinc-900 border border-zinc-800 px-3 py-2 text-center">
               <p class="text-base font-black">{{ item.reps }}</p>
@@ -84,6 +88,14 @@
           </button>
         </div>
 
+        {% if item.suggestion %}
+        <button type="button" class="suggestion-btn w-full mt-2 rounded-xl bg-purple-500/10 border border-purple-500/30 px-3 py-2.5 flex items-center justify-between gap-2 text-left active:scale-[.98] transition"
+                data-id="{{ item.pk }}" data-suggested="{{ item.suggestion.suggested|to_unit:weight_unit|stringformat:'.1f' }}">
+          <span class="text-[11px] text-purple-300 leading-snug">💡 Última vez: {{ item.suggestion.last|to_unit:weight_unit|floatformat:"-1" }}{{ weight_unit }}. ¿Subimos a <b>{{ item.suggestion.suggested|to_unit:weight_unit|floatformat:"-1" }}{{ weight_unit }}</b>?</span>
+          <span class="text-[11px] font-black text-purple-300 shrink-0">Aplicar →</span>
+        </button>
+        {% endif %}
+
         {% if item.exercise.kind != 'cardio' %}
           <div class="flex gap-1.5 mt-3 dots"></div>
         {% endif %}
@@ -91,8 +103,20 @@
         <button type="button" class="set-btn w-full mt-3 rounded-xl py-4 font-black text-sm active:scale-[.98] transition"></button>
         <div class="flex items-center justify-between mt-2">
           <button type="button" class="undo-btn text-xs font-bold text-zinc-500 hidden">↩ Deshacer última serie</button>
-          <button type="button" class="skip-ex-btn text-xs font-bold text-zinc-500 ml-auto">Saltar ejercicio →</button>
+          <div class="flex items-center gap-3 ml-auto">
+            {% if item.alternatives %}
+              <button type="button" class="swap-btn text-xs font-bold text-zinc-500" data-id="{{ item.pk }}">🔁 Cambiar</button>
+            {% endif %}
+            <button type="button" class="skip-ex-btn text-xs font-bold text-zinc-500">Saltar ejercicio →</button>
+          </div>
         </div>
+        {% if item.alternatives %}
+          <div class="alt-source hidden" data-for="{{ item.pk }}">
+            {% for alt in item.alternatives %}
+              <button type="button" class="alt-option w-full text-left rounded-xl bg-zinc-800 px-4 py-3 text-sm font-semibold active:scale-[.98] transition mb-2" data-id="{{ alt.pk }}">{{ alt.title }}</button>
+            {% endfor %}
+          </div>
+        {% endif %}
       </div>
     </section>
     {% endfor %}
@@ -189,9 +213,26 @@
   </div>
 </div>
 
+{# ---- Cambiar ejercicio ---- #}
+<div id="swapSheet" class="fixed inset-0 z-50 hidden items-end bg-zinc-950/70 backdrop-blur-sm">
+  <div class="w-full max-w-md mx-auto rounded-t-3xl bg-zinc-900 border-t border-zinc-800 p-5 pb-8 max-h-[75vh] overflow-y-auto">
+    <div class="w-10 h-1 rounded-full bg-zinc-700 mx-auto mb-4"></div>
+    <p class="font-black text-lg">Cambiar ejercicio</p>
+    <p class="text-sm text-zinc-500 mt-0.5 mb-4">Solo por hoy no hay equipo, o preferís otro de la misma zona</p>
+    <div id="swapOptions"></div>
+    <button type="button" id="swapSheetClose" class="w-full rounded-xl bg-zinc-800/50 py-3 font-bold text-sm text-zinc-400 active:scale-95 transition mt-1">Cancelar</button>
+  </div>
+</div>
+<form id="swapForm" method="post" class="hidden">
+  {% csrf_token %}
+  <input type="hidden" name="exercise" id="swapExerciseInput">
+  <input type="hidden" name="next" value="{{ request.path }}">
+</form>
+
 <script>
 (function () {
   const CSRF = '{{ csrf_token }}';
+  const UNIT = '{{ weight_unit }}';
   const RING = 339;
 
   // ---------------------------------------------------------- Utilidades
@@ -224,6 +265,48 @@
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') keepAwake();
   });
+
+  // ---------------------------------------------------------- Sin conexion: cola de series pendientes
+  const QUEUE_KEY = 'fittrack:pendingSets';
+  const offlineBadge = document.getElementById('offlineBadge');
+
+  function loadQueue() {
+    try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); } catch (e) { return []; }
+  }
+  function saveQueue(q) {
+    try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q)); } catch (e) {}
+  }
+  function queueAction(itemId, action) {
+    const q = loadQueue();
+    q.push({ itemId, action });
+    saveQueue(q);
+    offlineBadge.classList.remove('hidden');
+  }
+  async function flushQueue() {
+    let q = loadQueue();
+    while (q.length) {
+      const { itemId, action } = q[0];
+      try {
+        const res = await fetch(`/rutina/item/${itemId}/serie/`, {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': CSRF, 'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: 'action=' + action,
+        });
+        if (!res.ok) break;
+        q.shift();
+        saveQueue(q);
+      } catch (e) {
+        break; // sigue sin conexion, se reintenta mas tarde
+      }
+    }
+    if (!q.length) offlineBadge.classList.add('hidden');
+  }
+  window.addEventListener('online', flushQueue);
+  window.addEventListener('offline', () => offlineBadge.classList.remove('hidden'));
+  flushQueue();
 
   // ---------------------------------------------------------- Slides (un ejercicio a pantalla completa)
   const slides = [...document.querySelectorAll('.exercise-slide')];
@@ -293,22 +376,42 @@
     document.getElementById('dayBar').style.width = data.day_pct + '%';
   }
 
+  function computeDayTotals() {
+    let total = 0, done = 0;
+    slides.forEach((s) => { total += +s.dataset.total; done += Math.min(+s.dataset.done, +s.dataset.total); });
+    return { day_total: total, day_done: done, day_pct: total ? Math.round(done / total * 100) : 0 };
+  }
+
   async function sendSet(slide, action) {
-    const res = await fetch(`/rutina/item/${slide.dataset.id}/serie/`, {
-      method: 'POST',
-      headers: {
-        'X-CSRFToken': CSRF,
-        'X-Requested-With': 'XMLHttpRequest',
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: 'action=' + action,
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    slide.dataset.done = data.sets_done;
-    paintSlide(slide);
-    updateDay(data);
-    return data;
+    try {
+      const res = await fetch(`/rutina/item/${slide.dataset.id}/serie/`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': CSRF,
+          'X-Requested-With': 'XMLHttpRequest',
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'action=' + action,
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      slide.dataset.done = data.sets_done;
+      paintSlide(slide);
+      updateDay(data);
+      return data;
+    } catch (e) {
+      // Sin conexion: aplica el cambio igual en pantalla y lo reintenta despues.
+      queueAction(slide.dataset.id, action);
+      const total = +slide.dataset.total;
+      let done = +slide.dataset.done;
+      if (action === 'add') done = Math.min(done + 1, total);
+      else if (action === 'remove') done = Math.max(done - 1, 0);
+      slide.dataset.done = done;
+      paintSlide(slide);
+      const totals = computeDayTotals();
+      updateDay(totals);
+      return { sets_done: done, complete: done >= total, ...totals };
+    }
   }
 
   slides.forEach((slide) => {
@@ -333,6 +436,31 @@
       if (next === -1) showFinished();
       else showSlide(next);
     });
+
+    const suggestionBtn = slide.querySelector('.suggestion-btn');
+    if (suggestionBtn) {
+      suggestionBtn.addEventListener('click', async () => {
+        const weight = suggestionBtn.dataset.suggested;
+        suggestionBtn.disabled = true;
+        try {
+          await fetch(`/rutina/item/${slide.dataset.id}/peso/`, {
+            method: 'POST',
+            headers: {
+              'X-CSRFToken': CSRF, 'X-Requested-With': 'XMLHttpRequest',
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'weight=' + encodeURIComponent(weight),
+          });
+          slide.querySelector('.weight-display').textContent = weight;
+          suggestionBtn.remove();
+        } catch (e) {
+          suggestionBtn.disabled = false;
+        }
+      });
+    }
+
+    const swapBtn = slide.querySelector('.swap-btn');
+    if (swapBtn) swapBtn.addEventListener('click', () => openSwap(slide.dataset.id));
   });
 
   const startIdx = firstIncompleteIndex(0);
@@ -349,7 +477,7 @@
   const pauseBtn = document.getElementById('restPause');
   const adjustRow = document.getElementById('restAdjustRow');
   const skipBtn = document.getElementById('restSkip');
-  let timer = null, left = 0, span = 0, paused = false, finishedRest = false;
+  let timer = null, left = 0, span = 0, paused = false;
 
   function render() {
     timeEl.textContent = fmt(Math.max(left, 0));
@@ -372,7 +500,6 @@
   function onRestDone() {
     clearInterval(timer);
     timer = null;
-    finishedRest = true;
     beep();
     labelEl.textContent = '¡Descanso terminado!';
     adjustRow.classList.add('hidden');
@@ -382,7 +509,6 @@
   function startRest(seconds, name, exerciseComplete) {
     left = span = seconds;
     paused = false;
-    finishedRest = false;
     labelEl.textContent = 'Descanso';
     pauseBtn.textContent = 'Pausar';
     adjustRow.classList.remove('hidden');
@@ -477,6 +603,32 @@
       });
     });
   });
+
+  // ---------------------------------------------------------- Cambiar ejercicio
+  const swapSheet = document.getElementById('swapSheet');
+  const swapOptions = document.getElementById('swapOptions');
+  const swapForm = document.getElementById('swapForm');
+  const swapExerciseInput = document.getElementById('swapExerciseInput');
+
+  function openSwap(itemId) {
+    const source = document.querySelector(`.alt-source[data-for="${itemId}"]`);
+    swapOptions.innerHTML = source ? source.innerHTML : '';
+    swapForm.action = `/rutina/item/${itemId}/cambiar/`;
+    swapOptions.querySelectorAll('.alt-option').forEach((opt) => {
+      opt.addEventListener('click', () => {
+        swapExerciseInput.value = opt.dataset.id;
+        swapForm.submit();
+      });
+    });
+    swapSheet.classList.remove('hidden');
+    swapSheet.classList.add('flex');
+  }
+  function closeSwap() {
+    swapSheet.classList.add('hidden');
+    swapSheet.classList.remove('flex');
+  }
+  document.getElementById('swapSheetClose').addEventListener('click', closeSwap);
+  swapSheet.addEventListener('click', (e) => { if (e.target === swapSheet) closeSwap(); });
 })();
 </script>
 {% endblock %}

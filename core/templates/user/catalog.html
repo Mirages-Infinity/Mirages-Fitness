@@ -25,9 +25,14 @@
 {# ---- Zonas del cuerpo ---- #}
 <div class="px-5 mt-4">
   <div class="flex gap-2 overflow-x-auto no-scrollbar pb-2">
+    <a href="{% url 'catalog' %}{% if not fav_only %}?fav=1{% endif %}"
+       class="shrink-0 flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-bold transition
+              {% if fav_only %}bg-rose-500 text-white{% else %}bg-zinc-900 border border-zinc-800 text-zinc-400{% endif %}">
+      ❤️ Favoritos
+    </a>
     <a href="{% url 'catalog' %}{% if query %}?q={{ query|urlencode }}{% endif %}"
        class="shrink-0 rounded-xl px-4 py-2.5 text-sm font-bold transition
-              {% if not selected %}bg-lime-400 text-zinc-950{% else %}bg-zinc-900 border border-zinc-800 text-zinc-400{% endif %}">
+              {% if not selected and not fav_only %}bg-lime-400 text-zinc-950{% else %}bg-zinc-900 border border-zinc-800 text-zinc-400{% endif %}">
       Todas
     </a>
     {% for cat in categories %}
@@ -73,6 +78,14 @@
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
             </span>
           </label>
+          <button type="button" class="fav-heart absolute top-2 left-2 z-10 w-7 h-7 rounded-full bg-zinc-950/70 backdrop-blur flex items-center justify-center active:scale-90 transition"
+                  data-id="{{ ex.pk }}" data-fav="{% if ex.pk in favorite_ids %}1{% else %}0{% endif %}">
+            <svg class="w-4 h-4 heart-icon" viewBox="0 0 24 24"
+                 fill="{% if ex.pk in favorite_ids %}#f43f5e{% else %}none{% endif %}"
+                 stroke="{% if ex.pk in favorite_ids %}#f43f5e{% else %}#a1a1aa{% endif %}" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-6.5-4.35-9.5-8.5C.5 9 2 5 5.5 5c2 0 3.5 1.2 4.5 2.8C11 6.2 12.5 5 14.5 5 18 5 19.5 9 17.5 12.5 14.5 16.65 12 21 12 21z"/>
+            </svg>
+          </button>
           <a href="{% url 'exercise_add' ex.pk %}"
              class="exercise-card-link block rounded-2xl bg-zinc-900 border border-zinc-800 overflow-hidden active:scale-[.97] transition">
             <div class="relative">
@@ -143,6 +156,24 @@
 
 <script>
 (function () {
+  const hearts = [...document.querySelectorAll('.fav-heart')];
+  const csrfInput = document.querySelector('#bulkForm [name=csrfmiddlewaretoken]');
+  hearts.forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const wasFav = btn.dataset.fav === '1';
+      const icon = btn.querySelector('.heart-icon');
+      btn.dataset.fav = wasFav ? '0' : '1';
+      icon.setAttribute('fill', wasFav ? 'none' : '#f43f5e');
+      icon.setAttribute('stroke', wasFav ? '#a1a1aa' : '#f43f5e');
+      try {
+        await fetch(`/ejercicio/${btn.dataset.id}/favorito/`, {
+          method: 'POST',
+          headers: { 'X-CSRFToken': csrfInput.value, 'X-Requested-With': 'XMLHttpRequest' },
+        });
+      } catch (e) { /* se reintenta la proxima vez que se toque */ }
+    });
+  });
+
   const toggle = document.getElementById('selectToggle');
   if (!toggle) return;
   const bar = document.getElementById('bulkBar');
@@ -166,6 +197,7 @@
   function setMode(on) {
     active = on;
     boxes.forEach((b) => b.classList.toggle('hidden', !on));
+    hearts.forEach((h) => h.classList.toggle('hidden', on));
     bar.classList.toggle('hidden', !on);
     toggle.textContent = on ? 'Cancelar' : 'Seleccionar varios';
     toggle.classList.toggle('text-lime-400', on);

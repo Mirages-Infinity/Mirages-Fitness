@@ -6,10 +6,18 @@
   <a href="{% url 'catalog' %}" class="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 active:scale-95 transition">
     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
   </a>
-  <div class="min-w-0">
+  <div class="min-w-0 flex-1">
     <h1 class="text-xl font-black tracking-tight truncate">{{ exercise.title }}</h1>
     <p class="text-xs text-zinc-500 flex items-center gap-1">{% include 'partials/category_icon.html' with cat=exercise.category cls="w-3.5 h-3.5" %} {{ exercise.category.name }}</p>
   </div>
+  <button type="button" id="favHeart" data-id="{{ exercise.pk }}" data-fav="{% if is_favorite %}1{% else %}0{% endif %}"
+          class="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center active:scale-90 transition shrink-0">
+    <svg class="w-5 h-5 heart-icon" viewBox="0 0 24 24"
+         fill="{% if is_favorite %}#f43f5e{% else %}none{% endif %}"
+         stroke="{% if is_favorite %}#f43f5e{% else %}#a1a1aa{% endif %}" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-6.5-4.35-9.5-8.5C.5 9 2 5 5.5 5c2 0 3.5 1.2 4.5 2.8C11 6.2 12.5 5 14.5 5 18 5 19.5 9 17.5 12.5 14.5 16.65 12 21 12 21z"/>
+    </svg>
+  </button>
 </header>
 
 {% if exercise.image %}
@@ -72,7 +80,7 @@
     <p class="text-[11px] text-zinc-600 -mt-2">La distancia es opcional.</p>
   {% else %}
     <div>
-      <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Peso (kg)</label>
+      <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">{{ form.weight.label }}</label>
       {{ form.weight }}
     </div>
     <div class="grid grid-cols-2 gap-4">
@@ -102,4 +110,24 @@
     {% if existing_days %}Guardar cambios{% else %}+ Agregar a mi rutina{% endif %}
   </button>
 </form>
+
+<script>
+(function () {
+  const btn = document.getElementById('favHeart');
+  const icon = btn.querySelector('.heart-icon');
+  const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  btn.addEventListener('click', async () => {
+    const wasFav = btn.dataset.fav === '1';
+    btn.dataset.fav = wasFav ? '0' : '1';
+    icon.setAttribute('fill', wasFav ? 'none' : '#f43f5e');
+    icon.setAttribute('stroke', wasFav ? '#a1a1aa' : '#f43f5e');
+    try {
+      await fetch(`/ejercicio/${btn.dataset.id}/favorito/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrf, 'X-Requested-With': 'XMLHttpRequest' },
+      });
+    } catch (e) {}
+  });
+})();
+</script>
 {% endblock %}

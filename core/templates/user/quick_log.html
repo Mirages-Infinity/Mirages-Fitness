@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% block title %}Registro rápido · FitTrack{% endblock %}
+{% block content %}
+
+<header class="px-5 pt-8 pb-4 flex items-center gap-3">
+  <a href="{% url 'history' %}" class="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 active:scale-95 transition">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+  </a>
+  <div>
+    <h1 class="text-xl font-black tracking-tight">Registro rápido</h1>
+    <p class="text-xs text-zinc-500">Anota algo hecho fuera de tu rutina de hoy</p>
+  </div>
+</header>
+
+<form method="post" class="px-5 space-y-5">
+  {% csrf_token %}
+  <div>
+    <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Ejercicio</label>
+    {{ form.exercise }}
+  </div>
+
+  <div id="strengthFields" class="space-y-5">
+    <div>
+      <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">{{ form.weight.label }}</label>
+      {{ form.weight }}
+    </div>
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Series</label>
+        {{ form.sets }}
+      </div>
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Repeticiones</label>
+        {{ form.reps }}
+      </div>
+    </div>
+  </div>
+
+  <div id="cardioFields" class="grid grid-cols-2 gap-4 hidden">
+    <div>
+      <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Duración (min)</label>
+      {{ form.duration_min }}
+    </div>
+    <div>
+      <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Distancia (km)</label>
+      {{ form.distance_km }}
+    </div>
+  </div>
+
+  <button type="submit"
+          class="w-full rounded-xl bg-lime-400 py-4 font-black text-zinc-950 active:scale-[.98] transition shadow-lg shadow-lime-400/20">
+    ✓ Registrar
+  </button>
+</form>
+
+<script>
+(function () {
+  const select = document.getElementById('id_exercise');
+  const strength = document.getElementById('strengthFields');
+  const cardio = document.getElementById('cardioFields');
+  const kinds = { {% for ex in form.fields.exercise.queryset %}{{ ex.pk }}: "{{ ex.kind }}",{% endfor %} };
+
+  function sync() {
+    const isCardio = kinds[select.value] === 'cardio';
+    strength.classList.toggle('hidden', isCardio);
+    cardio.classList.toggle('hidden', !isCardio);
+  }
+  select.addEventListener('change', sync);
+  sync();
+})();
+</script>
+{% endblock %}

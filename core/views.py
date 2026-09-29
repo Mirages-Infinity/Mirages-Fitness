@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
-from django.db.models import Count, Q
+from django.db.models import Count, Max, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -13,7 +13,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from .forms import (
     CardioItemForm, CategoryForm, ExerciseForm, PlanWizardForm, ProfileForm,
-    RegisterForm, RoutineItemForm, SiteConfigForm,
+    QuickLogForm, RegisterForm, RoutineItemForm, SiteConfigForm,
 )
 from .models import (
     Category, DailyCheck, Exercise, Payment, Profile, RoutineItem, RoutinePlan,
@@ -72,6 +72,34 @@ def group_by_zone(items):
 
 
 DAYS = RoutineItem.DAYS
+
+
+def suggest_weight(user, item):
+    """Sugiere el proximo peso segun el ultimo registro de este ejercicio.
+
+    Heuristica simple: si la ultima vez que se registro este ejercicio el
+    peso era igual o mayor al que tiene ahora en la rutina (no lo subiste
+    todavia a mano), sugiere subirlo un poco. No pretende ser un algoritmo
+    de progresion "inteligente", solo un empujon util basado en el
+    historial real del usuario.
+    """
+    if item.exercise.kind == 'cardio':
+        return None
+    last = (
+        WorkoutLog.objects.filter(user=user, exercise=item.exercise)
+        .exclude(date=date.today())
+        .order_by('-date', '-id')
+        .first()
+    )
+    if not last or float(last.weight) <= 0:
+        return None
+    if float(item.weight) > float(last.weight):
+        return None  # ya se subio el peso desde el ultimo registro
+    increment = 1.0 if item.exercise.equipment in ('dumbbell', 'bodyweight', 'band') else 2.5
+    suggested = float(last.weight) + increment
+    if suggested <= float(item.weight):
+        return None
+    return {'last': float(last.weight), 'suggested': suggested}
 
 
 def is_admin(user):
@@ -168,8 +196,14 @@ def workout(request, day=None):
         day = date.today().weekday()
     day = int(day)
     items = day_items(request.user, day)
+    for item in items:
+        item.suggestion = suggest_weight(request.user, item)
+        item.alternatives = Exercise.objects.filter(
+            category=item.exercise.category,
+        ).exclude(pk=item.exercise.pk).select_related('category')[:12]
     total_sets = sum(i.total_sets for i in items)
     done_sets = sum(min(i.sets_done, i.total_sets) for i in items)
+    profile = get_profile(request.user)
     return render(request, 'user/workout.html', {
         'items': items,
         'day': day,
@@ -179,7 +213,7 @@ def workout(request, day=None):
         'done_sets': done_sets,
         'progress_pct': int(done_sets / total_sets * 100) if total_sets else 0,
         'done_today': WorkoutLog.objects.filter(user=request.user, date=date.today()).exists(),
-        'default_rest': get_profile(request.user).default_rest,
+        'default_rest': profile.default_rest,
         'active_tab': 'home',
         'hide_nav': True,
     })
@@ -392,6 +426,50 @@ def item_rest(request, pk):
 
 @login_required
 @require_POST
+def routine_item_set_weight(request, pk):
+    """Aplica un peso nuevo con un toque (ej. aceptar la sugerencia de progresion)."""
+    from decimal import Decimal, InvalidOperation
+    from .forms import kg_from_lb
+
+    item = get_object_or_404(RoutineItem, pk=pk, user=request.user)
+    unit = get_profile(request.user).unit
+    try:
+        weight = Decimal(request.POST.get('weight', str(item.weight)))
+    except InvalidOperation:
+        weight = item.weight
+    item.weight = kg_from_lb(weight) if unit == 'lb' else weight.quantize(Decimal('0.1'))
+    item.save(update_fields=['weight'])
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        from django.http import JsonResponse
+        from .templatetags.fittrack_extras import to_unit
+        return JsonResponse({'weight': to_unit(item.weight, unit)})
+    return redirect(request.POST.get('next') or 'workout')
+
+
+@login_required
+@require_POST
+def routine_item_swap(request, pk):
+    """Sustituye el ejercicio de un item de la rutina por otro (mismo dia).
+
+    Util cuando en el gimnasio no hay una maquina/equipo disponible: se
+    cambia el ejercicio sin tener que borrar y volver a armar el dia.
+    """
+    item = get_object_or_404(RoutineItem, pk=pk, user=request.user)
+    new_exercise = get_object_or_404(Exercise, pk=request.POST.get('exercise'))
+    old_title = item.exercise.title
+    item.exercise = new_exercise
+    if new_exercise.kind == 'cardio':
+        item.weight = 0
+    item.save()
+    messages.success(request, f'Cambiaste "{old_title}" por "{new_exercise.title}".')
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        from django.http import JsonResponse
+        return JsonResponse({'ok': True, 'title': new_exercise.title})
+    return redirect(request.POST.get('next') or 'workout')
+
+
+@login_required
+@require_POST
 def routine_clear(request):
     RoutineItem.objects.filter(user=request.user).delete()
     messages.success(request, 'Tu rutina fue vaciada. Puedes crear una nueva.')
@@ -438,15 +516,29 @@ def routine_bulk_delete(request):
 
 @login_required
 def profile_settings(request):
+    from .templatetags.fittrack_extras import to_unit
+
     profile = get_profile(request.user)
     form = ProfileForm(request.POST or None, instance=profile)
     if request.method == 'POST' and form.is_valid():
         form.save()
         messages.success(request, 'Preferencias guardadas.')
         return redirect('profile')
+
+    pct_table = []
+    if profile.bench_1rm or profile.squat_1rm or profile.deadlift_1rm:
+        for pct in (50, 60, 70, 75, 80, 85, 90, 95):
+            pct_table.append({
+                'pct': pct,
+                'bench': to_unit(profile.bench_1rm * pct / 100, profile.unit) if profile.bench_1rm else None,
+                'squat': to_unit(profile.squat_1rm * pct / 100, profile.unit) if profile.squat_1rm else None,
+                'deadlift': to_unit(profile.deadlift_1rm * pct / 100, profile.unit) if profile.deadlift_1rm else None,
+            })
+
     return render(request, 'user/profile.html', {
         'form': form, 'profile': profile,
         'sub': getattr(request.user, 'subscription', None),
+        'pct_table': pct_table,
         'active_tab': 'profile',
     })
 
@@ -454,7 +546,8 @@ def profile_settings(request):
 @login_required
 def routine_item_edit(request, pk):
     item = get_object_or_404(RoutineItem, pk=pk, user=request.user)
-    form = item_form_class(item.exercise)(request.POST or None, instance=item)
+    unit = get_profile(request.user).unit
+    form = item_form_class(item.exercise)(request.POST or None, instance=item, unit=unit)
     if request.method == 'POST' and form.is_valid():
         form.save()
         messages.success(request, f'{item.exercise.title} actualizado.')
@@ -470,6 +563,10 @@ def catalog(request):
     selected = request.GET.get('cat')
     equipment = request.GET.get('eq', '')
     query = request.GET.get('q', '').strip()
+    fav_only = request.GET.get('fav') == '1'
+    profile = get_profile(request.user)
+    favorite_ids = set(profile.favorites.values_list('pk', flat=True))
+
     exercises = Exercise.objects.select_related('category')
     if selected:
         exercises = exercises.filter(category_id=selected)
@@ -479,6 +576,8 @@ def catalog(request):
         exercises = exercises.filter(
             Q(title__icontains=query) | Q(description__icontains=query)
         )
+    if fav_only:
+        exercises = exercises.filter(pk__in=favorite_ids)
     context = {
         'categories': categories,
         'exercises': exercises,
@@ -486,6 +585,8 @@ def catalog(request):
         'equipment': equipment,
         'selected': int(selected) if selected and selected.isdigit() else None,
         'query': query,
+        'fav_only': fav_only,
+        'favorite_ids': favorite_ids,
         'in_routine_ids': set(
             RoutineItem.objects.filter(user=request.user).values_list('exercise_id', flat=True)
         ),
@@ -494,6 +595,23 @@ def catalog(request):
         'active_tab': 'catalog',
     }
     return render(request, 'user/catalog.html', context)
+
+
+@login_required
+@require_POST
+def exercise_favorite_toggle(request, pk):
+    exercise = get_object_or_404(Exercise, pk=pk)
+    profile = get_profile(request.user)
+    if profile.favorites.filter(pk=exercise.pk).exists():
+        profile.favorites.remove(exercise)
+        is_fav = False
+    else:
+        profile.favorites.add(exercise)
+        is_fav = True
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        from django.http import JsonResponse
+        return JsonResponse({'is_favorite': is_fav})
+    return redirect(request.POST.get('next') or 'catalog')
 
 
 @login_required
@@ -536,11 +654,11 @@ def catalog_bulk_add(request):
 def exercise_add(request, pk):
     exercise = get_object_or_404(Exercise, pk=pk)
     form_class = item_form_class(exercise)
+    profile = get_profile(request.user)
     if request.method == 'POST':
-        form = form_class(request.POST)
+        form = form_class(request.POST, unit=profile.unit)
         days = request.POST.getlist('days')
         if form.is_valid() and days:
-            profile = get_profile(request.user)
             added, updated = [], []
             for d in days:
                 d = int(d)
@@ -576,11 +694,13 @@ def exercise_add(request, pk):
         if existing:
             fields = form_class.base_fields.keys()
             initial = {f: getattr(existing[0], f) for f in fields if f != 'rest_seconds'}
-        form = form_class(initial=initial)
+        form = form_class(initial=initial, unit=profile.unit)
 
     return render(request, 'user/exercise_add.html', {
         'exercise': exercise, 'form': form, 'days': DAYS,
         'today': date.today().weekday(), 'existing_days': existing_days,
+        'is_favorite': profile.favorites.filter(pk=exercise.pk).exists(),
+        'unit': profile.unit,
         'active_tab': 'catalog',
     })
 
@@ -605,10 +725,18 @@ def log_today(request):
     if not checks:
         messages.error(request, 'Marca al menos una serie completada antes de registrar.')
         return redirect('home')
+
+    prs = []
     for item in items:
         sets_done = checks.get(item.pk, 0)
         if not sets_done:
             continue
+        if item.exercise.kind != 'cardio' and item.weight > 0:
+            prev_max = WorkoutLog.objects.filter(
+                user=request.user, exercise=item.exercise,
+            ).exclude(date=date.today()).aggregate(m=Max('weight'))['m']
+            if prev_max is not None and item.weight > prev_max:
+                prs.append(item.exercise.title)
         WorkoutLog.objects.create(
             user=request.user,
             exercise=item.exercise,
@@ -619,11 +747,43 @@ def log_today(request):
             distance_km=item.distance_km,
         )
     messages.success(request, f'¡Entrenamiento registrado ({len(checks)} ejercicios)! 🔥')
+    if prs:
+        messages.success(request, f'🏆 ¡Nuevo récord personal en {", ".join(prs)}!')
     return redirect('home')
 
 
 @login_required
+def quick_log(request):
+    """Registro suelto: anota un ejercicio hecho fuera de la rutina de hoy
+    (otro gimnasio, algo improvisado) sin pasar por el modo entrenamiento."""
+    profile = get_profile(request.user)
+    if request.method == 'POST':
+        form = QuickLogForm(request.POST, unit=profile.unit)
+        if form.is_valid():
+            data = form.cleaned_data
+            exercise = data['exercise']
+            WorkoutLog.objects.create(
+                user=request.user, exercise=exercise,
+                weight=data['weight'] or 0,
+                sets=data['sets'] or 1,
+                reps=data['reps'] or 1,
+                duration_min=data['duration_min'],
+                distance_km=data['distance_km'],
+            )
+            messages.success(request, f'{exercise.title} registrado en tu historial.')
+            return redirect('history')
+    else:
+        form = QuickLogForm(unit=profile.unit)
+    return render(request, 'user/quick_log.html', {
+        'form': form, 'unit': profile.unit, 'active_tab': 'history',
+    })
+
+
+@login_required
 def history(request):
+    from .templatetags.fittrack_extras import to_unit
+
+    weight_unit = get_profile(request.user).unit
     logs = (
         WorkoutLog.objects
         .filter(user=request.user)
@@ -634,7 +794,10 @@ def history(request):
     for log in logs:
         grouped.setdefault(log.date, []).append(log)
     sessions = [
-        {'date': d, 'logs': lgs, 'total_kg': sum(l.weight * l.sets * l.reps for l in lgs)}
+        {
+            'date': d, 'logs': lgs,
+            'total_kg': to_unit(sum(l.weight * l.sets * l.reps for l in lgs), weight_unit),
+        }
         for d, lgs in grouped.items()
     ]
     # Ejercicios con historial para ver progreso
@@ -647,13 +810,17 @@ def history(request):
     recent_plans = RoutinePlan.objects.filter(user=request.user)[:3]
     return render(request, 'user/history.html', {
         'sessions': sessions, 'exercises': exercises, 'recent_plans': recent_plans,
+        'weight_unit': weight_unit,
         'active_tab': 'history',
     })
 
 
 @login_required
 def progress(request, pk):
+    from .templatetags.fittrack_extras import to_unit
+
     exercise = get_object_or_404(Exercise, pk=pk)
+    weight_unit = get_profile(request.user).unit
     logs = list(
         WorkoutLog.objects
         .filter(user=request.user, exercise=exercise)
@@ -664,7 +831,7 @@ def progress(request, pk):
     def metric(log):
         if is_cardio:
             return float(log.distance_km or 0) or float(log.duration_min or 0)
-        return float(log.weight)
+        return to_unit(log.weight, weight_unit)
 
     values = [metric(l) for l in logs]
     first_val = values[0] if values else 0
@@ -675,14 +842,25 @@ def progress(request, pk):
         {'date': l.date, 'value': v, 'pct': (v / max_val * 100) if max_val else 0}
         for l, v in zip(logs, values)
     ]
-    # Unidad: km si hay distancia; min si solo hay duracion
-    unit = 'kg'
+    # Unidad: km si hay distancia; min si solo hay duracion; kg/lb segun perfil
+    unit = weight_unit
     if is_cardio:
         unit = 'km' if any(l.distance_km for l in logs) else 'min'
+
+    # 1RM estimado (formula de Epley): peso * (1 + reps/30). Solo referencial.
+    one_rm = None
+    best_one_rm = None
+    if not is_cardio and logs:
+        def epley(log):
+            return float(log.weight) * (1 + float(log.reps) / 30)
+        one_rm = round(to_unit(epley(logs[-1]), weight_unit), 1)
+        best_one_rm = round(to_unit(max(epley(l) for l in logs), weight_unit), 1)
+
     return render(request, 'user/progress.html', {
         'exercise': exercise, 'logs': logs[::-1], 'chart': chart,
         'first_val': first_val, 'last_val': last_val, 'diff': diff,
         'unit': unit, 'is_cardio': is_cardio,
+        'one_rm': one_rm, 'best_one_rm': best_one_rm, 'weight_unit': weight_unit,
         'active_tab': 'history',
     })
 

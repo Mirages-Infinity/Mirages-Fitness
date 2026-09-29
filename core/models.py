@@ -230,6 +230,10 @@ class Profile(models.Model):
         ('intermediate', 'Intermedio'),
         ('advanced', 'Avanzado'),
     ]
+    UNITS = [
+        ('kg', 'Kilogramos (kg)'),
+        ('lb', 'Libras (lb)'),
+    ]
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     # Los usuarios creados antes del RUT (o por consola) pueden no tenerlo:
@@ -239,6 +243,14 @@ class Profile(models.Model):
     level = models.CharField('Nivel', max_length=12, choices=LEVELS, default='beginner')
     days_per_week = models.PositiveIntegerField('Dias por semana', default=3)
     default_rest = models.PositiveIntegerField('Descanso preferido (seg)', default=60)
+    unit = models.CharField('Unidad de peso', max_length=2, choices=UNITS, default='kg')
+    favorites = models.ManyToManyField(
+        Exercise, blank=True, related_name='favorited_by', verbose_name='Ejercicios favoritos',
+    )
+    # 1RM de referencia para calcular porcentajes de trabajo (opcional).
+    bench_1rm = models.DecimalField('1RM Press de banca (kg)', max_digits=6, decimal_places=1, null=True, blank=True)
+    squat_1rm = models.DecimalField('1RM Sentadilla (kg)', max_digits=6, decimal_places=1, null=True, blank=True)
+    deadlift_1rm = models.DecimalField('1RM Peso muerto (kg)', max_digits=6, decimal_places=1, null=True, blank=True)
 
     class Meta:
         verbose_name = 'Perfil'
