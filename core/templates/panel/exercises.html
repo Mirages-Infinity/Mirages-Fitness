@@ -10,8 +10,11 @@
     <h1 class="text-xl font-black tracking-tight">Ejercicios</h1>
     <p class="text-xs text-zinc-500">{{ exercises|length }} en el catálogo</p>
   </div>
+  {% if exercises %}
+  <button type="button" id="selectToggle" class="shrink-0 text-xs font-bold text-zinc-400">Seleccionar</button>
+  {% endif %}
   <a href="{% url 'panel_exercise_create' %}"
-     class="rounded-xl bg-lime-400 px-4 py-2.5 text-sm font-bold text-zinc-950 active:scale-95 transition">+ Nuevo</a>
+     class="rounded-xl bg-lime-400 px-4 py-2.5 text-sm font-bold text-zinc-950 active:scale-95 transition shrink-0">+ Nuevo</a>
 </header>
 
 {# ---- Filtro por categoria ---- #}
@@ -32,29 +35,68 @@
 
 <section class="px-5 mt-3">
   {% if exercises %}
-    <div class="space-y-3">
-      {% for ex in exercises %}
-      <div class="flex items-center gap-3 rounded-2xl bg-zinc-900 border border-zinc-800 p-3">
-        {% if ex.image %}
-          <img src="{{ ex.image.url }}" alt="{{ ex.title }}" class="w-14 h-14 rounded-xl object-cover bg-zinc-800 shrink-0">
-        {% else %}
-          {% include 'partials/category_icon.html' with cat=ex.category cls="w-14 h-14" box=True %}
-        {% endif %}
-        <div class="flex-1 min-w-0">
-          <p class="font-bold text-sm truncate">{{ ex.title }}</p>
-          <p class="text-xs text-zinc-500 mt-0.5">{{ ex.category.name }}</p>
+    <form id="bulkForm" method="post" action="{% url 'panel_exercise_bulk_delete' %}">
+      {% csrf_token %}
+      {% if selected %}<input type="hidden" name="cat" value="{{ selected }}">{% endif %}
+      <input type="hidden" name="scope" id="bulkScope" value="selected">
+
+      <div class="space-y-3">
+        {% for ex in exercises %}
+        <div class="item-row flex items-center gap-3 rounded-2xl bg-zinc-900 border border-zinc-800 p-3">
+          <label class="select-box hidden shrink-0 cursor-pointer">
+            <input type="checkbox" name="items" value="{{ ex.pk }}" class="peer sr-only item-check">
+            <span class="w-6 h-6 rounded-md border-2 border-zinc-600 flex items-center justify-center text-transparent
+                         peer-checked:bg-lime-400 peer-checked:border-lime-400 peer-checked:text-zinc-950 transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+            </span>
+          </label>
+          {% if ex.image %}
+            <img src="{{ ex.image.url }}" alt="{{ ex.title }}" class="w-14 h-14 rounded-xl object-cover bg-zinc-800 shrink-0">
+          {% else %}
+            {% include 'partials/category_icon.html' with cat=ex.category cls="w-14 h-14" box=True %}
+          {% endif %}
+          <div class="flex-1 min-w-0">
+            <p class="font-bold text-sm truncate">{{ ex.title }}</p>
+            <p class="text-xs text-zinc-500 mt-0.5">{{ ex.category.name }}</p>
+          </div>
+          <a href="{% url 'panel_exercise_edit' ex.pk %}"
+             class="rounded-lg bg-zinc-800 px-3 py-2 text-xs font-bold active:scale-95 transition shrink-0">Editar</a>
+          <button type="submit" name="single" value="{{ ex.pk }}"
+                  data-confirm="&quot;{{ ex.title }}&quot; se quitará del catálogo y de las rutinas de los usuarios."
+                  data-confirm-title="¿Eliminar {{ ex.title }}?"
+                  class="rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-xs font-bold text-red-400 active:scale-95 transition shrink-0">✕</button>
         </div>
-        <a href="{% url 'panel_exercise_edit' ex.pk %}"
-           class="rounded-lg bg-zinc-800 px-3 py-2 text-xs font-bold active:scale-95 transition shrink-0">Editar</a>
-        <form action="{% url 'panel_exercise_delete' ex.pk %}" method="post"
-              data-confirm="Se quitará del catálogo y de las rutinas de los usuarios."
-              data-confirm-title="¿Eliminar {{ ex.title }}?">
-          {% csrf_token %}
-          <button type="submit" class="rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-xs font-bold text-red-400 active:scale-95 transition">✕</button>
-        </form>
+        {% endfor %}
       </div>
-      {% endfor %}
-    </div>
+
+      {# ---- Barra de seleccion multiple ---- #}
+      <div id="bulkBar" class="hidden fixed bottom-4 inset-x-0 z-40 mx-auto max-w-md px-4">
+        <div class="rounded-2xl bg-zinc-900 border border-zinc-700 shadow-2xl p-3 flex items-center gap-2">
+          <button type="button" id="selectAll"
+                  class="rounded-lg bg-zinc-800 px-3 py-2.5 text-xs font-bold text-white active:scale-95 transition shrink-0">
+            Todos
+          </button>
+          <p class="flex-1 text-sm font-bold text-center"><span id="selCount">0</span> seleccionado<span id="selPlural"></span></p>
+          <button type="submit" id="deleteSelected" disabled
+                  data-confirm="Los ejercicios seleccionados se quitarán del catálogo y de las rutinas de los usuarios."
+                  data-confirm-title="¿Eliminar seleccionados?"
+                  class="rounded-lg bg-red-500 px-4 py-2.5 text-xs font-black text-white active:scale-95 transition shrink-0 disabled:opacity-40">
+            Eliminar
+          </button>
+        </div>
+      </div>
+    </form>
+
+    {# ---- Vaciar catalogo completo ---- #}
+    <form method="post" action="{% url 'panel_exercise_bulk_delete' %}" class="mt-4"
+          data-confirm="Se eliminarán TODOS los ejercicios del catálogo ({{ exercises|length }}) y se quitarán de las rutinas de todos los usuarios. Esta acción no se puede deshacer."
+          data-confirm-title="¿Vaciar todo el catálogo?" data-confirm-ok="Vaciar catálogo">
+      {% csrf_token %}
+      <input type="hidden" name="scope" value="all">
+      <button type="submit" class="w-full rounded-xl bg-red-500/10 border border-red-500/20 py-3 text-xs font-bold text-red-400 active:scale-95 transition">
+        Vaciar catálogo completo
+      </button>
+    </form>
   {% else %}
     <div class="rounded-2xl border border-dashed border-zinc-800 p-8 text-center mt-2">
       <span class="text-4xl">🏋️</span>
@@ -63,4 +105,50 @@
     </div>
   {% endif %}
 </section>
+
+<script>
+(function () {
+  const toggle = document.getElementById('selectToggle');
+  if (!toggle) return;
+  const bar = document.getElementById('bulkBar');
+  const checks = [...document.querySelectorAll('.item-check')];
+  const boxes = [...document.querySelectorAll('.select-box')];
+  const countEl = document.getElementById('selCount');
+  const pluralEl = document.getElementById('selPlural');
+  const delBtn = document.getElementById('deleteSelected');
+  let active = false;
+
+  function refresh() {
+    const n = checks.filter((c) => c.checked).length;
+    countEl.textContent = n;
+    pluralEl.textContent = n === 1 ? '' : 's';
+    delBtn.disabled = n === 0;
+    checks.forEach((c) => {
+      c.closest('.item-row').classList.toggle('border-lime-400/40', c.checked);
+    });
+  }
+
+  function setMode(on) {
+    active = on;
+    boxes.forEach((b) => b.classList.toggle('hidden', !on));
+    bar.classList.toggle('hidden', !on);
+    document.querySelector('main').classList.toggle('pb-24', on);
+    toggle.textContent = on ? 'Cancelar' : 'Seleccionar';
+    toggle.classList.toggle('text-lime-400', on);
+    if (!on) {
+      checks.forEach((c) => { c.checked = false; });
+      refresh();
+    }
+  }
+
+  toggle.addEventListener('click', () => setMode(!active));
+  checks.forEach((c) => c.addEventListener('change', refresh));
+
+  document.getElementById('selectAll').addEventListener('click', () => {
+    const allOn = checks.every((c) => c.checked);
+    checks.forEach((c) => { c.checked = !allOn; });
+    refresh();
+  });
+})();
+</script>
 {% endblock %}

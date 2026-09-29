@@ -6,6 +6,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
 from django.db.models import Count, Max, Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from django.http import HttpResponse
@@ -1059,6 +1060,42 @@ def panel_exercise_delete(request, pk):
     exercise.delete()
     messages.success(request, f'Ejercicio "{exercise.title}" eliminado.')
     return redirect('panel_exercises')
+
+
+@admin_required
+@require_POST
+def panel_exercise_bulk_delete(request):
+    """Elimina uno, varios o todos los ejercicios del catalogo a la vez."""
+    single = request.POST.get('single')
+    scope = request.POST.get('scope', 'selected')
+    exercises = Exercise.objects.all()
+
+    if single:
+        target = exercises.filter(pk=single)
+    elif scope == 'all':
+        target = exercises
+    else:
+        target = exercises.filter(pk__in=request.POST.getlist('items'))
+
+    count = target.count()
+    if count:
+        target.delete()
+        if scope == 'all' and not single:
+            messages.success(request, f'Catálogo vaciado: {count} ejercicios eliminados.')
+        else:
+            messages.success(
+                request,
+                f'{count} ejercicio{"s" if count != 1 else ""} '
+                f'eliminado{"s" if count != 1 else ""} del catálogo.',
+            )
+    else:
+        messages.error(request, 'No seleccionaste ningún ejercicio.')
+
+    url = reverse('panel_exercises')
+    cat = request.POST.get('cat')
+    if cat:
+        url += f'?cat={cat}'
+    return redirect(url)
 
 
 @admin_required

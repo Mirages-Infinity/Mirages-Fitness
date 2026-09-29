@@ -65,6 +65,7 @@ urlpatterns = [
     path('panel/ejercicios/nuevo/', views.panel_exercise_form, name='panel_exercise_create'),
     path('panel/ejercicios/<int:pk>/editar/', views.panel_exercise_form, name='panel_exercise_edit'),
     path('panel/ejercicios/<int:pk>/eliminar/', views.panel_exercise_delete, name='panel_exercise_delete'),
+    path('panel/ejercicios/eliminar/', views.panel_exercise_bulk_delete, name='panel_exercise_bulk_delete'),
     path('panel/usuarios/', views.panel_users, name='panel_users'),
     path('panel/usuarios/<int:pk>/toggle/', views.panel_user_toggle, name='panel_user_toggle'),
     path('panel/usuarios/<int:pk>/eliminar/', views.panel_user_delete, name='panel_user_delete'),
