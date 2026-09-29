@@ -23,6 +23,16 @@
   <p class="px-5 text-sm text-zinc-400 leading-relaxed mb-5">{{ exercise.description }}</p>
 {% endif %}
 
+{% if existing_days %}
+  <div class="mx-5 mb-5 rounded-xl bg-sky-400/10 border border-sky-400/30 px-4 py-3">
+    <p class="text-sm font-bold text-sky-400">✏️ Ya está en tu rutina</p>
+    <p class="text-xs text-zinc-400 mt-0.5">
+      Los días marcados abajo ya tienen este ejercicio — precargamos tus valores actuales.
+      Si los guardas, se actualizan en vez de duplicarse.
+    </p>
+  </div>
+{% endif %}
+
 <form method="post" class="px-5 space-y-5">
   {% csrf_token %}
 
@@ -31,14 +41,17 @@
     <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-2">¿Qué días lo harás?</label>
     <div class="grid grid-cols-7 gap-1.5">
       {% for value, name in days %}
-        <label class="cursor-pointer">
+        <label class="cursor-pointer relative">
           <input type="checkbox" name="days" value="{{ value }}" class="peer sr-only"
-                 {% if value == today %}checked{% endif %}>
+                 {% if value in existing_days or value == today %}checked{% endif %}>
           <span class="flex items-center justify-center rounded-lg py-2.5 text-xs font-bold border transition
                        bg-zinc-900 border-zinc-800 text-zinc-500
                        peer-checked:bg-lime-400 peer-checked:border-lime-400 peer-checked:text-zinc-950">
             {{ name|slice:":2" }}
           </span>
+          {% if value in existing_days %}
+            <span class="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-sky-400 border-2 border-zinc-950"></span>
+          {% endif %}
         </label>
       {% endfor %}
     </div>
@@ -86,7 +99,7 @@
 
   <button type="submit"
           class="w-full rounded-xl bg-lime-400 py-4 font-black text-zinc-950 active:scale-[.98] transition shadow-lg shadow-lime-400/20">
-    + Agregar a mi rutina
+    {% if existing_days %}Guardar cambios{% else %}+ Agregar a mi rutina{% endif %}
   </button>
 </form>
 {% endblock %}

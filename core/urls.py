@@ -35,6 +35,7 @@ urlpatterns = [
     path('entrenar/dia/<int:day>/', views.workout, name='workout_day'),
     path('perfil/', views.profile_settings, name='profile'),
     path('catalogo/', views.catalog, name='catalog'),
+    path('catalogo/agregar/', views.catalog_bulk_add, name='catalog_bulk_add'),
     path('ejercicio/<int:pk>/agregar/', views.exercise_add, name='exercise_add'),
     path('entrenar/registrar/', views.log_today, name='log_today'),
     path('historial/', views.history, name='history'),

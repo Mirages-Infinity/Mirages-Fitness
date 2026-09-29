@@ -181,6 +181,7 @@ def workout(request, day=None):
         'done_today': WorkoutLog.objects.filter(user=request.user, date=date.today()).exists(),
         'default_rest': get_profile(request.user).default_rest,
         'active_tab': 'home',
+        'hide_nav': True,
     })
 
 
@@ -485,9 +486,50 @@ def catalog(request):
         'equipment': equipment,
         'selected': int(selected) if selected and selected.isdigit() else None,
         'query': query,
+        'in_routine_ids': set(
+            RoutineItem.objects.filter(user=request.user).values_list('exercise_id', flat=True)
+        ),
+        'DAYS_CHOICES': DAYS,
+        'today': date.today().weekday(),
         'active_tab': 'catalog',
     }
     return render(request, 'user/catalog.html', context)
+
+
+@login_required
+@require_POST
+def catalog_bulk_add(request):
+    """Agrega varios ejercicios del catalogo a la vez a los dias elegidos.
+
+    Si un ejercicio ya esta en un dia, ese dia se omite (no se pisa): para
+    cambiarle el peso o las series hay que editarlo desde 'Mi rutina'.
+    """
+    exercise_ids = request.POST.getlist('exercises')
+    days = request.POST.getlist('days')
+    if not exercise_ids or not days:
+        messages.error(request, 'Selecciona al menos un ejercicio y un dia.')
+        return redirect('catalog')
+
+    exercises = list(Exercise.objects.filter(pk__in=exercise_ids))
+    profile = get_profile(request.user)
+    added = skipped = 0
+    for exercise in exercises:
+        for d in days:
+            d = int(d)
+            _, created = RoutineItem.objects.get_or_create(
+                user=request.user, exercise=exercise, day=d,
+                defaults={'rest_seconds': profile.default_rest},
+            )
+            if created:
+                added += 1
+            else:
+                skipped += 1
+
+    msg = f'{len(exercises)} ejercicio{"s" if len(exercises) != 1 else ""}: {added} agregado{"s" if added != 1 else ""}'
+    if skipped:
+        msg += f', {skipped} ya estaba{"n" if skipped != 1 else ""} en tu rutina (sin cambios)'
+    messages.success(request, msg + '.')
+    return redirect('routine_day', day=int(days[0]))
 
 
 @login_required
@@ -523,11 +565,23 @@ def exercise_add(request, pk):
             return redirect('routine_day', day=int(days[0]))
         if not days:
             messages.error(request, 'Selecciona al menos un dia.')
-    else:
-        form = form_class()
+    existing = list(RoutineItem.objects.filter(user=request.user, exercise=exercise))
+    existing_days = {i.day for i in existing}
+
+    if request.method != 'POST':
+        # Si ya esta en la rutina, precarga los valores actuales en vez de
+        # mostrar el formulario en blanco: el usuario esta editando, no
+        # agregando de cero.
+        initial = None
+        if existing:
+            fields = form_class.base_fields.keys()
+            initial = {f: getattr(existing[0], f) for f in fields if f != 'rest_seconds'}
+        form = form_class(initial=initial)
+
     return render(request, 'user/exercise_add.html', {
         'exercise': exercise, 'form': form, 'days': DAYS,
-        'today': date.today().weekday(), 'active_tab': 'catalog',
+        'today': date.today().weekday(), 'existing_days': existing_days,
+        'active_tab': 'catalog',
     })
 
 
