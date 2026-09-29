@@ -20,7 +20,12 @@
   </button>
 </header>
 
-{% if exercise.image %}
+{% if exercise.video %}
+  <div class="px-5 mb-4">
+    <video src="{{ exercise.video.url }}" class="w-full h-52 rounded-2xl object-cover bg-zinc-900"
+           autoplay loop muted playsinline controls></video>
+  </div>
+{% elif exercise.image %}
   <div class="px-5 mb-4">
     <img src="{{ exercise.image.url }}" alt="{{ exercise.title }}"
          class="w-full h-52 rounded-2xl object-cover bg-zinc-900">

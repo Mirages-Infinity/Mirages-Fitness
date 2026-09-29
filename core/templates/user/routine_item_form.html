@@ -12,7 +12,12 @@
   </div>
 </header>
 
-{% if item.exercise.image %}
+{% if item.exercise.video %}
+  <div class="px-5 mb-4">
+    <video src="{{ item.exercise.video.url }}" class="w-full h-44 rounded-2xl object-cover bg-zinc-900"
+           autoplay loop muted playsinline controls></video>
+  </div>
+{% elif item.exercise.image %}
   <div class="px-5 mb-4">
     <img src="{{ item.exercise.image.url }}" alt="{{ item.exercise.title }}"
          class="w-full h-44 rounded-2xl object-cover bg-zinc-900">

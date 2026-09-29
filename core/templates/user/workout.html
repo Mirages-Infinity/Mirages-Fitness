@@ -36,10 +36,12 @@
              data-done="{{ item.sets_done }}" data-rest="{{ item.rest_seconds }}" data-name="{{ item.exercise.title }}"
              data-cardio="{% if item.exercise.kind == 'cardio' %}1{% else %}0{% endif %}">
 
-      {# ---- Demostracion (gif/imagen a pantalla completa) ---- #}
-      <div class="gif-trigger relative flex-1 min-h-0 flex items-center justify-center overflow-hidden"
-           style="background: {% if item.exercise.image %}#18181b{% else %}linear-gradient(135deg, {{ item.exercise.category.color }}26, {{ item.exercise.category.color }}0d){% endif %};">
-        {% if item.exercise.image %}
+      {# ---- Demostracion (video/gif/imagen a pantalla completa) ---- #}
+      <div class="{% if not item.exercise.video %}gif-trigger{% endif %} relative flex-1 min-h-0 flex items-center justify-center overflow-hidden"
+           style="background: {% if item.exercise.video or item.exercise.image %}#18181b{% else %}linear-gradient(135deg, {{ item.exercise.category.color }}26, {{ item.exercise.category.color }}0d){% endif %};">
+        {% if item.exercise.video %}
+          <video src="{{ item.exercise.video.url }}" class="max-w-full max-h-full" autoplay loop muted playsinline controls></video>
+        {% elif item.exercise.image %}
           <img src="{{ item.exercise.image.url }}" alt="{{ item.exercise.title }}" class="max-w-full max-h-full object-contain">
         {% else %}
           {% include 'partials/category_icon.html' with cat=item.exercise.category cls="w-20 h-20" %}

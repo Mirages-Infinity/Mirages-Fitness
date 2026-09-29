@@ -1,6 +1,7 @@
 from datetime import date, timedelta
 
 from django.contrib.auth.models import User
+from django.core.validators import FileExtensionValidator
 from django.db import models
 
 
@@ -57,6 +58,11 @@ class Exercise(models.Model):
     title = models.CharField('Titulo', max_length=100)
     description = models.TextField('Descripcion', blank=True)
     image = models.ImageField('Imagen', upload_to='exercises/', blank=True, null=True)
+    video = models.FileField(
+        'Video (mp4, 15 seg. max.)', upload_to='exercise_videos/', blank=True, null=True,
+        validators=[FileExtensionValidator(['mp4'])],
+        help_text='Video corto mostrando como se hace el ejercicio. Si hay video, se muestra en vez de la imagen.',
+    )
     kind = models.CharField('Tipo', max_length=10, choices=KINDS, default='strength')
     equipment = models.CharField(
         'Equipamiento', max_length=12, choices=EQUIPMENT, default='bodyweight',

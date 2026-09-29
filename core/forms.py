@@ -74,10 +74,13 @@ class CategoryForm(forms.ModelForm):
         }
 
 
+MAX_VIDEO_MB = 20
+
+
 class ExerciseForm(forms.ModelForm):
     class Meta:
         model = Exercise
-        fields = ['category', 'title', 'kind', 'equipment', 'level', 'description', 'image']
+        fields = ['category', 'title', 'kind', 'equipment', 'level', 'description', 'image', 'video']
         widgets = {
             'category': forms.Select(attrs={'class': INPUT_CLASS}),
             'kind': forms.Select(attrs={'class': INPUT_CLASS}),
@@ -94,7 +97,19 @@ class ExerciseForm(forms.ModelForm):
                          'file:text-sm file:font-semibold file:text-zinc-950',
                 'accept': 'image/*',
             }),
+            'video': forms.ClearableFileInput(attrs={
+                'class': 'w-full text-sm text-zinc-400 file:mr-3 file:rounded-lg '
+                         'file:border-0 file:bg-lime-400 file:px-4 file:py-2 '
+                         'file:text-sm file:font-semibold file:text-zinc-950',
+                'accept': 'video/mp4',
+            }),
         }
+
+    def clean_video(self):
+        video = self.cleaned_data.get('video')
+        if video and hasattr(video, 'size') and video.size > MAX_VIDEO_MB * 1024 * 1024:
+            raise forms.ValidationError(f'El video pesa demasiado (máx. {MAX_VIDEO_MB} MB). Recortalo a ~15 segundos.')
+        return video
 
 
 class SiteConfigForm(forms.ModelForm):
