@@ -279,7 +279,16 @@ class SiteConfig(models.Model):
         ('MXN', 'Peso mexicano (MXN)'),
     ]
 
+    # codigo de plan -> (meses que acredita, nombre para mostrar)
+    PLANS = {
+        'monthly': (1, 'Mensual'),
+        'quarterly': (3, 'Trimestral'),
+        'annual': (12, 'Anual'),
+    }
+
     monthly_price = models.DecimalField('Precio mensual', max_digits=12, decimal_places=2, default=0)
+    quarterly_price = models.DecimalField('Precio trimestral (3 meses)', max_digits=12, decimal_places=2, default=0)
+    annual_price = models.DecimalField('Precio anual (12 meses)', max_digits=12, decimal_places=2, default=0)
     currency = models.CharField('Moneda', max_length=3, choices=CURRENCIES, default='ARS')
     trial_days = models.PositiveIntegerField('Dias de prueba gratis', default=7)
     mp_access_token = models.CharField(
@@ -300,9 +309,40 @@ class SiteConfig(models.Model):
         obj, _ = cls.objects.get_or_create(pk=1)
         return obj
 
+    def price_for(self, plan):
+        return {
+            'monthly': self.monthly_price,
+            'quarterly': self.quarterly_price,
+            'annual': self.annual_price,
+        }.get(plan, 0)
+
+    @property
+    def available_plans(self):
+        """Planes con precio cargado (>0), con el ahorro vs. pagar mes a mes."""
+        plans = []
+        for code, (months, label) in self.PLANS.items():
+            price = self.price_for(code)
+            if price <= 0:
+                continue
+            monthly_equivalent = price / months
+            savings_pct = None
+            if self.monthly_price > 0 and code != 'monthly':
+                full_price = self.monthly_price * months
+                if full_price > price:
+                    savings_pct = round((1 - price / full_price) * 100)
+            plans.append({
+                'code': code, 'label': label, 'months': months, 'price': price,
+                'monthly_equivalent': monthly_equivalent, 'savings_pct': savings_pct,
+            })
+        # El de mayor ahorro primero (y preseleccionado): suele ser el mejor
+        # negocio tanto para el usuario como para el gimnasio.
+        plans.sort(key=lambda p: p['savings_pct'] or -1, reverse=True)
+        return plans
+
     @property
     def payments_ready(self):
-        return bool(self.mp_access_token) and self.monthly_price > 0
+        has_price = self.monthly_price > 0 or self.quarterly_price > 0 or self.annual_price > 0
+        return bool(self.mp_access_token) and has_price
 
 
 class Subscription(models.Model):

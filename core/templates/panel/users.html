@@ -46,17 +46,24 @@
       </div>
     </div>
     {% if u != request.user %}
-    <div class="flex gap-2 mt-3 pt-3 border-t border-zinc-800">
+    {% if not u.is_staff %}
+    <form action="{% url 'panel_user_add_month' u.pk %}" method="post" class="flex gap-1.5 mt-3 pt-3 border-t border-zinc-800"
+          data-confirm="Se le sumará el periodo elegido de acceso a la plataforma."
+          data-confirm-title="¿Activar plan para {{ u.username }}?"
+          data-confirm-ok="Activar" data-confirm-icon="✅" data-confirm-tone="primary">
+      {% csrf_token %}
+      <select name="plan" class="flex-1 min-w-0 rounded-lg bg-lime-400/10 border border-lime-400/20 px-2 py-2 text-xs font-bold text-lime-400">
+        <option value="monthly">Mensual (+1 mes)</option>
+        <option value="quarterly">Trimestral (+3 meses)</option>
+        <option value="annual">Anual (+12 meses)</option>
+      </select>
+      <button type="submit" class="shrink-0 rounded-lg bg-lime-400 px-4 py-2 text-xs font-black text-zinc-950 active:scale-95 transition">
+        Activar
+      </button>
+    </form>
+    {% endif %}
+    <div class="flex gap-2 mt-2 {% if u.is_staff %}pt-3 border-t border-zinc-800{% endif %}">
       {% if not u.is_staff %}
-      <form action="{% url 'panel_user_add_month' u.pk %}" method="post" class="flex-1"
-            data-confirm="Se le sumarán 30 días de acceso a la plataforma."
-            data-confirm-title="¿Activar 1 mes a {{ u.username }}?"
-            data-confirm-ok="Activar" data-confirm-icon="✅" data-confirm-tone="primary">
-        {% csrf_token %}
-        <button type="submit" class="w-full rounded-lg bg-lime-400/10 border border-lime-400/20 px-3 py-2 text-xs font-bold text-lime-400 active:scale-95 transition">
-          +1 mes
-        </button>
-      </form>
       <form action="{% url 'panel_user_exempt' u.pk %}" method="post" class="flex-1">
         {% csrf_token %}
         <button type="submit" class="w-full rounded-lg {% if u.subscription.exempt %}bg-sky-400/20 border border-sky-400/40 text-sky-300{% else %}bg-sky-400/10 border border-sky-400/20 text-sky-400{% endif %} px-3 py-2 text-xs font-bold active:scale-95 transition">

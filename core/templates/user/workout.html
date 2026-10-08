@@ -258,6 +258,41 @@
     if (navigator.vibrate) navigator.vibrate([200, 80, 200]);
   }
 
+  // Alarma de "se acabo el descanso": suena ~5s, se corta si el usuario
+  // toca Continuar antes de que termine.
+  let alarmCtx = null;
+  function playAlarm() {
+    stopAlarm();
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      const ctx = new Ctx();
+      alarmCtx = ctx;
+      const beepLen = 0.18, gap = 0.22, cycle = beepLen + gap, duration = 5;
+      const count = Math.ceil(duration / cycle);
+      for (let i = 0; i < count; i++) {
+        const t = ctx.currentTime + i * cycle;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = i % 2 === 0 ? 880 : 988;
+        gain.gain.setValueAtTime(0.001, t);
+        gain.gain.exponentialRampToValueAtTime(0.4, t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + beepLen);
+        osc.start(t);
+        osc.stop(t + beepLen + 0.02);
+      }
+    } catch (e) { /* el navegador puede bloquear audio sin interaccion */ }
+    if (navigator.vibrate) {
+      const pattern = [];
+      for (let i = 0; i < 12; i++) pattern.push(220, 200);
+      navigator.vibrate(pattern);
+    }
+  }
+  function stopAlarm() {
+    if (alarmCtx) { try { alarmCtx.close(); } catch (e) {} alarmCtx = null; }
+    if (navigator.vibrate) navigator.vibrate(0);
+  }
+
   // Mantiene la pantalla encendida mientras entrenas
   let wakeLock = null;
   async function keepAwake() {
@@ -490,6 +525,7 @@
   function closeRest() {
     clearInterval(timer);
     timer = null;
+    stopAlarm();
     overlay.classList.add('hidden');
     overlay.classList.remove('flex');
     // Si al ejercicio actual le quedan series, se queda en el (ya
@@ -502,7 +538,7 @@
   function onRestDone() {
     clearInterval(timer);
     timer = null;
-    beep();
+    playAlarm();
     labelEl.textContent = '¡Descanso terminado!';
     adjustRow.classList.add('hidden');
     skipBtn.textContent = 'CONTINUAR →';

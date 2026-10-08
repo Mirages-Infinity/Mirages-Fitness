@@ -50,35 +50,67 @@
 {# ---- Plan ---- #}
 {% if not sub.exempt %}
 <section class="px-5 mt-5">
-  <div class="rounded-2xl bg-zinc-900 border border-zinc-800 p-5">
-    <div class="flex items-baseline justify-between">
-      <p class="font-bold">Plan mensual</p>
-      {% if config.monthly_price > 0 %}
-        <p class="text-2xl font-black text-lime-400">{{ config.monthly_price|floatformat:"-2" }} <span class="text-xs text-zinc-400 font-semibold">{{ config.currency }}</span></p>
-      {% endif %}
-    </div>
-    <ul class="mt-3 space-y-1.5 text-sm text-zinc-400">
-      <li>✓ Rutinas semanales ilimitadas</li>
-      <li>✓ Catálogo completo de ejercicios</li>
-      <li>✓ Historial y progreso de peso</li>
-    </ul>
+  <p class="font-bold mb-3">Elegí tu plan</p>
 
-    {% if config.payments_ready %}
-      <form action="{% url 'pay_create' %}" method="post" class="mt-4">
-        {% csrf_token %}
+  <ul class="mb-4 space-y-1.5 text-sm text-zinc-400">
+    <li>✓ Rutinas semanales ilimitadas</li>
+    <li>✓ Catálogo completo de ejercicios</li>
+    <li>✓ Historial y progreso de peso</li>
+  </ul>
+
+  {% if config.available_plans %}
+    <form action="{% url 'pay_create' %}" method="post" id="planForm">
+      {% csrf_token %}
+      <div class="space-y-2.5">
+        {% for plan in config.available_plans %}
+          <label class="plan-option block relative rounded-2xl border-2 border-zinc-800 bg-zinc-900 p-4 cursor-pointer transition">
+            <input type="radio" name="plan" value="{{ plan.code }}" class="plan-radio sr-only"
+                   {% if forloop.first %}checked{% endif %}>
+            {% if plan.savings_pct %}
+              <span class="absolute -top-2.5 right-4 rounded-full bg-lime-400 text-zinc-950 text-[10px] font-black px-2.5 py-0.5">
+                AHORRÁS {{ plan.savings_pct }}%
+              </span>
+            {% endif %}
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-3">
+                <span class="check-dot w-5 h-5 rounded-full border-2 border-zinc-600 shrink-0 flex items-center justify-center">
+                  <span class="check-dot-fill w-2.5 h-2.5 rounded-full bg-zinc-950 hidden"></span>
+                </span>
+                <div>
+                  <p class="font-bold text-sm">{{ plan.label }}</p>
+                  <p class="text-[11px] text-zinc-500">{{ plan.monthly_equivalent|floatformat:"-2" }} {{ config.currency }}/mes</p>
+                </div>
+              </div>
+              <p class="text-lg font-black text-lime-400 shrink-0">{{ plan.price|floatformat:"-2" }} <span class="text-[10px] text-zinc-500 font-semibold">{{ config.currency }}</span></p>
+            </div>
+          </label>
+        {% endfor %}
+      </div>
+
+      {% if config.payments_ready %}
         <button type="submit"
-                class="w-full rounded-xl bg-[#009EE3] py-4 font-black text-white active:scale-[.98] transition">
+                class="w-full mt-4 rounded-xl bg-[#009EE3] py-4 font-black text-white active:scale-[.98] transition">
           Pagar con Mercado Pago
         </button>
-      </form>
-      <p class="text-center text-[11px] text-zinc-600 mt-2">Pago seguro procesado por Mercado Pago. Se acreditan 30 días por pago.</p>
-    {% else %}
-      <div class="mt-4 rounded-xl bg-zinc-800/60 px-4 py-3 text-sm text-zinc-400 text-center">
-        Los pagos en línea aún no están habilitados.<br>Contacta al administrador para activar tu suscripción.
-      </div>
-    {% endif %}
-  </div>
+        <p class="text-center text-[11px] text-zinc-600 mt-2">Pago seguro procesado por Mercado Pago. Los días se acreditan apenas se aprueba el pago.</p>
+      {% else %}
+        <div class="mt-4 rounded-xl bg-zinc-800/60 px-4 py-3 text-sm text-zinc-400 text-center">
+          Los pagos en línea aún no están habilitados.<br>Contacta al administrador para activar tu suscripción.
+        </div>
+      {% endif %}
+    </form>
+  {% else %}
+    <div class="rounded-2xl bg-zinc-900 border border-zinc-800 p-5 text-center text-sm text-zinc-400">
+      Todavía no hay planes configurados. Contacta al administrador.
+    </div>
+  {% endif %}
 </section>
+
+<style>
+  .plan-option:has(.plan-radio:checked) { border-color: #a3e635; background: rgba(163, 230, 53, 0.08); }
+  .plan-option:has(.plan-radio:checked) .check-dot { border-color: #a3e635; background: #a3e635; }
+  .plan-option:has(.plan-radio:checked) .check-dot-fill { display: block; }
+</style>
 {% endif %}
 
 {# ---- Historial de pagos ---- #}

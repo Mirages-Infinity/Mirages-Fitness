@@ -886,11 +886,17 @@ def pay_create(request):
     if not config.payments_ready:
         messages.error(request, 'Los pagos aun no estan configurados. Contacta al administrador.')
         return redirect('subscription')
+    plan = request.POST.get('plan', 'monthly')
+    months, _ = SiteConfig.PLANS.get(plan, SiteConfig.PLANS['monthly'])
+    amount = config.price_for(plan)
+    if amount <= 0:
+        messages.error(request, 'Ese plan no esta disponible.')
+        return redirect('subscription')
     payment = Payment.objects.create(
         user=request.user,
-        amount=config.monthly_price,
+        amount=amount,
         currency=config.currency,
-        months=1,
+        months=months,
     )
     checkout_url = create_preference(request, payment)
     if not checkout_url:
@@ -1142,17 +1148,23 @@ def panel_config(request):
 @admin_required
 @require_POST
 def panel_user_add_month(request, pk):
+    """Activa manualmente un plan (pago en efectivo, transferencia, etc.)."""
     user = get_object_or_404(User, pk=pk)
+    plan = request.POST.get('plan', 'monthly')
+    months, label = SiteConfig.PLANS.get(plan, SiteConfig.PLANS['monthly'])
     sub = Subscription.objects.filter(user=user).first()
     if sub is None:
         sub = Subscription.objects.create(user=user, trial_ends=date.today())
-    sub.add_months(1)
+    sub.add_months(months)
     config = SiteConfig.get()
     Payment.objects.create(
-        user=user, amount=config.monthly_price, currency=config.currency,
-        months=1, status='approved', manual=True,
+        user=user, amount=config.price_for(plan), currency=config.currency,
+        months=months, status='approved', manual=True,
     )
-    messages.success(request, f'+1 mes activado para "{user.username}" (hasta {sub.paid_until:%d/%m/%Y}).')
+    messages.success(
+        request,
+        f'Plan {label.lower()} activado para "{user.username}" (hasta {sub.paid_until:%d/%m/%Y}).',
+    )
     return redirect('panel_users')
 
 

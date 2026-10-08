@@ -115,9 +115,18 @@ class ExerciseForm(forms.ModelForm):
 class SiteConfigForm(forms.ModelForm):
     class Meta:
         model = SiteConfig
-        fields = ['monthly_price', 'currency', 'trial_days', 'mp_access_token', 'mp_public_key']
+        fields = [
+            'monthly_price', 'quarterly_price', 'annual_price', 'currency',
+            'trial_days', 'mp_access_token', 'mp_public_key',
+        ]
         widgets = {
             'monthly_price': forms.NumberInput(attrs={
+                'class': INPUT_CLASS, 'step': '0.01', 'min': '0', 'inputmode': 'decimal',
+            }),
+            'quarterly_price': forms.NumberInput(attrs={
+                'class': INPUT_CLASS, 'step': '0.01', 'min': '0', 'inputmode': 'decimal',
+            }),
+            'annual_price': forms.NumberInput(attrs={
                 'class': INPUT_CLASS, 'step': '0.01', 'min': '0', 'inputmode': 'decimal',
             }),
             'currency': forms.Select(attrs={'class': INPUT_CLASS}),
