@@ -65,11 +65,39 @@
     <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Unidad de peso</label>
     {{ form.unit }}
   </div>
-  <div>
-    <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Meta de calorías diarias (opcional)</label>
-    {{ form.calorie_goal }}
-    <p class="text-[11px] text-zinc-600 mt-1">Repartimos 30% proteína / 40% carbos / 30% grasa automáticamente.</p>
+  <h2 class="text-lg font-bold pt-2">Tu meta de calorías (opcional)</h2>
+  <p class="text-xs text-zinc-500 -mt-3">Completá estos datos y te calculamos cuántas calorías comer por día.</p>
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Edad</label>
+      {{ form.age }}
+    </div>
+    <div>
+      <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Sexo</label>
+      {{ form.sex }}
+    </div>
   </div>
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Altura (cm)</label>
+      {{ form.height_cm }}
+    </div>
+    <div>
+      <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Peso (kg)</label>
+      {{ form.weight_kg }}
+    </div>
+  </div>
+  <div>
+    <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Nivel de actividad</label>
+    {{ form.activity_level }}
+  </div>
+  {% if profile.calorie_goal %}
+    <div class="rounded-2xl bg-lime-400/10 border border-lime-400/30 p-4">
+      <p class="text-xs font-bold uppercase tracking-wider text-lime-400">Tu meta calculada</p>
+      <p class="text-2xl font-black mt-1">{{ profile.calorie_goal }} <span class="text-sm font-bold text-zinc-500">kcal/día</span></p>
+      <p class="text-[11px] text-zinc-500 mt-1">Según tu objetivo, altura, peso, edad y nivel de actividad. Repartimos 30% proteína / 40% carbos / 30% grasa automáticamente.</p>
+    </div>
+  {% endif %}
 
   <h2 class="text-lg font-bold pt-2">Tus 1RM (opcional)</h2>
   <p class="text-xs text-zinc-500 -mt-3">Para calcular tus porcentajes de trabajo automáticamente.</p>

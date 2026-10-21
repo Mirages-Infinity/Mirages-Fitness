@@ -298,7 +298,8 @@ class ProfileForm(forms.ModelForm):
         model = Profile
         fields = [
             'goal', 'level', 'days_per_week', 'default_rest', 'unit',
-            'bench_1rm', 'squat_1rm', 'deadlift_1rm', 'calorie_goal',
+            'bench_1rm', 'squat_1rm', 'deadlift_1rm',
+            'age', 'sex', 'height_cm', 'weight_kg', 'activity_level',
         ]
         widgets = {
             'goal': forms.Select(attrs={'class': INPUT_CLASS}),
@@ -319,10 +320,20 @@ class ProfileForm(forms.ModelForm):
                 'class': INPUT_CLASS, 'step': '0.5', 'min': '0', 'inputmode': 'decimal',
                 'placeholder': 'Ej: 120',
             }),
-            'calorie_goal': forms.NumberInput(attrs={
-                'class': INPUT_CLASS, 'min': '0', 'inputmode': 'numeric',
-                'placeholder': 'Ej: 2200',
+            'age': forms.NumberInput(attrs={
+                'class': INPUT_CLASS, 'min': '10', 'max': '100', 'inputmode': 'numeric',
+                'placeholder': 'Ej: 28',
             }),
+            'sex': forms.Select(attrs={'class': INPUT_CLASS}),
+            'height_cm': forms.NumberInput(attrs={
+                'class': INPUT_CLASS, 'min': '100', 'max': '250', 'inputmode': 'numeric',
+                'placeholder': 'Ej: 175',
+            }),
+            'weight_kg': forms.NumberInput(attrs={
+                'class': INPUT_CLASS, 'step': '0.1', 'min': '30', 'inputmode': 'decimal',
+                'placeholder': 'Ej: 70.5',
+            }),
+            'activity_level': forms.Select(attrs={'class': INPUT_CLASS}),
         }
 
 

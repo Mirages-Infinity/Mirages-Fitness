@@ -544,7 +544,9 @@ def profile_settings(request):
     profile = get_profile(request.user)
     form = ProfileForm(request.POST or None, instance=profile)
     if request.method == 'POST' and form.is_valid():
-        form.save()
+        profile = form.save(commit=False)
+        profile.calorie_goal = profile.calculate_calorie_goal()
+        profile.save()
         messages.success(request, 'Preferencias guardadas.')
         return redirect('profile')
 

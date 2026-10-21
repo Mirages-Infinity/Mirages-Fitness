@@ -240,6 +240,25 @@ class Profile(models.Model):
         ('kg', 'Kilogramos (kg)'),
         ('lb', 'Libras (lb)'),
     ]
+    SEX_CHOICES = [
+        ('M', 'Hombre'),
+        ('F', 'Mujer'),
+    ]
+    ACTIVITY_LEVELS = [
+        ('sedentary', 'Sedentario (poco o nada de ejercicio)'),
+        ('light', 'Ligero (ejercicio 1-3 dias/semana)'),
+        ('moderate', 'Moderado (ejercicio 3-5 dias/semana)'),
+        ('active', 'Activo (ejercicio 6-7 dias/semana)'),
+        ('very_active', 'Muy activo (ejercicio intenso o trabajo fisico)'),
+    ]
+    ACTIVITY_MULTIPLIERS = {
+        'sedentary': 1.2, 'light': 1.375, 'moderate': 1.55, 'active': 1.725, 'very_active': 1.9,
+    }
+    # Ajuste en kcal respecto del mantenimiento segun el objetivo ya elegido
+    # (campo GOALS de mas arriba), para no pedirle al usuario un dato extra.
+    GOAL_CALORIE_ADJUSTMENT = {
+        'perder_grasa': -500, 'hipertrofia': 350, 'fuerza': 150, 'resistencia': 0,
+    }
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     # Los usuarios creados antes del RUT (o por consola) pueden no tenerlo:
@@ -257,7 +276,16 @@ class Profile(models.Model):
     bench_1rm = models.DecimalField('1RM Press de banca (kg)', max_digits=6, decimal_places=1, null=True, blank=True)
     squat_1rm = models.DecimalField('1RM Sentadilla (kg)', max_digits=6, decimal_places=1, null=True, blank=True)
     deadlift_1rm = models.DecimalField('1RM Peso muerto (kg)', max_digits=6, decimal_places=1, null=True, blank=True)
-    # Nutricion (opcional)
+    # Nutricion (opcional). age/sex/height_cm/weight_kg/activity_level alimentan
+    # calculate_calorie_goal(): calorie_goal ya no se tipea a mano, se recalcula
+    # solo en profile_settings() cada vez que el usuario guarda estos datos.
+    age = models.PositiveIntegerField('Edad', null=True, blank=True)
+    sex = models.CharField('Sexo', max_length=1, choices=SEX_CHOICES, null=True, blank=True)
+    height_cm = models.PositiveIntegerField('Altura (cm)', null=True, blank=True)
+    weight_kg = models.DecimalField('Peso corporal (kg)', max_digits=5, decimal_places=1, null=True, blank=True)
+    activity_level = models.CharField(
+        'Nivel de actividad', max_length=12, choices=ACTIVITY_LEVELS, null=True, blank=True,
+    )
     calorie_goal = models.PositiveIntegerField('Meta de calorias diarias', null=True, blank=True)
     # default=True: las cuentas que ya existian al agregar este campo no
     # deben ver la bienvenida de golpe. Solo las nuevas (ver signals.py)
@@ -270,6 +298,19 @@ class Profile(models.Model):
 
     def __str__(self):
         return f'{self.user.username} ({self.rut})'
+
+    def calculate_calorie_goal(self):
+        """Formula de Mifflin-St Jeor (gasto basal) * factor de actividad,
+        ajustada segun el objetivo. Devuelve None si falta algun dato."""
+        if not (self.age and self.sex and self.height_cm and self.weight_kg and self.activity_level):
+            return None
+        weight = float(self.weight_kg)
+        bmr = 10 * weight + 6.25 * self.height_cm - 5 * self.age
+        bmr += 5 if self.sex == 'M' else -161
+        tdee = bmr * self.ACTIVITY_MULTIPLIERS[self.activity_level]
+        calories = tdee + self.GOAL_CALORIE_ADJUSTMENT.get(self.goal, 0)
+        # Piso de seguridad: no sugerir una meta por debajo de lo recomendado.
+        return max(round(calories), 1200)
 
     @property
     def macro_goals(self):
