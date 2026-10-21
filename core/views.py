@@ -13,13 +13,14 @@ from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 
 from .forms import (
-    CardioItemForm, CategoryForm, ExerciseForm, PlanWizardForm, ProfileForm,
-    QuickLogForm, RegisterForm, RoutineItemForm, SiteConfigForm,
+    CardioItemForm, CategoryForm, ExerciseForm, MealLogForm, PlanWizardForm,
+    ProfileForm, QuickLogForm, RegisterForm, RoutineItemForm, SiteConfigForm,
 )
 from .models import (
-    Category, DailyCheck, Exercise, Payment, Profile, RoutineItem, RoutinePlan,
-    RoutinePlanItem, SiteConfig, Subscription, WorkoutLog,
+    Category, DailyCheck, Exercise, MealLog, Payment, Profile, RoutineItem,
+    RoutinePlan, RoutinePlanItem, SiteConfig, Subscription, WorkoutLog,
 )
+from .nutrition import analyze_food_photo
 from .payments import create_preference, verify_and_apply
 from .planner import generate_plan
 
@@ -119,9 +120,21 @@ def register_view(request):
     if request.method == 'POST' and form.is_valid():
         user = form.save()
         login(request, user)
-        messages.success(request, f'¡Bienvenido, {user.username}! Tu cuenta fue creada.')
-        return redirect('home')
+        return redirect('onboarding')
     return render(request, 'auth/register.html', {'form': form})
+
+
+@login_required
+def onboarding(request):
+    """Bienvenida de 1 sola vez para cuentas nuevas, antes de usar la app."""
+    profile = get_profile(request.user)
+    if profile.onboarded:
+        return redirect('home')
+    if request.method == 'POST':
+        profile.onboarded = True
+        profile.save(update_fields=['onboarded'])
+        return redirect('plan_wizard')
+    return render(request, 'auth/onboarding.html', {'hide_nav': True})
 
 
 # ---------------------------------------------------------------- Usuario
@@ -152,6 +165,11 @@ def home(request):
         upcoming = [d for d in week if d > today_idx] or week
         next_day = {'day': upcoming[0], 'name': dict(DAYS)[upcoming[0]]}
 
+    streak = current_streak(set(logged_days))
+    # Festeja solo el dia justo en que se alcanza el hito, no todos los
+    # dias siguientes mientras la racha se mantenga por encima.
+    milestone = streak if done_today and streak in STREAK_MILESTONES else None
+
     context = {
         'items': items,
         'zones': zones,
@@ -160,7 +178,8 @@ def home(request):
         'today_name': dict(DAYS)[today_idx],
         'done_today': done_today,
         'total_logs': len(set(logged_days)),
-        'streak': current_streak(set(logged_days)),
+        'streak': streak,
+        'streak_milestone': milestone,
         'checked_count': checked_count,
         'total_sets': total_sets,
         'done_sets': done_sets,
@@ -171,6 +190,9 @@ def home(request):
         'active_tab': 'home',
     }
     return render(request, 'user/home.html', context)
+
+
+STREAK_MILESTONES = {3, 7, 14, 21, 30, 50, 75, 100, 150, 200, 365}
 
 
 def current_streak(days):
@@ -778,6 +800,85 @@ def quick_log(request):
     return render(request, 'user/quick_log.html', {
         'form': form, 'unit': profile.unit, 'active_tab': 'history',
     })
+
+
+# ---------------------------------------------------------------- Nutricion
+
+@login_required
+def nutrition_home(request):
+    """Resumen del dia: calorias/macros consumidos vs. meta, y comidas de hoy."""
+    profile = get_profile(request.user)
+    config = SiteConfig.get()
+    today = date.today()
+    meals = list(MealLog.objects.filter(user=request.user, date=today).order_by('created_at'))
+    totals = {
+        'calories': sum(m.calories for m in meals),
+        'protein': sum(m.protein_g for m in meals),
+        'carbs': sum(m.carbs_g for m in meals),
+        'fat': sum(m.fat_g for m in meals),
+    }
+    goal = profile.calorie_goal
+    pct = int(totals['calories'] / goal * 100) if goal else 0
+    over_goal = goal is not None and totals['calories'] > goal
+    logged_days = set(
+        MealLog.objects.filter(user=request.user).values_list('date', flat=True).distinct()
+    )
+    return render(request, 'user/nutrition.html', {
+        'meals': meals, 'totals': totals, 'goal': goal,
+        'macro_goals': profile.macro_goals,
+        'pct': min(pct, 100),
+        'ring_offset': 327 - (327 * min(pct, 100) / 100),
+        'over_goal': over_goal,
+        'remaining': abs(goal - totals['calories']) if goal else 0,
+        'streak': current_streak(logged_days),
+        'ai_ready': config.ai_ready,
+        'active_tab': 'nutrition',
+    })
+
+
+@login_required
+def meal_log_create(request):
+    config = SiteConfig.get()
+    if request.method == 'POST':
+        form = MealLogForm(request.POST, request.FILES)
+        if form.is_valid():
+            meal = form.save(commit=False)
+            meal.user = request.user
+            meal.ai_estimated = request.POST.get('ai_estimated') == '1'
+            meal.save()
+            messages.success(request, f'{meal.name or meal.get_meal_type_display()} registrado.')
+            return redirect('nutrition_home')
+    else:
+        form = MealLogForm(initial={'meal_type': request.GET.get('meal', 'snack')})
+    return render(request, 'user/meal_log_form.html', {
+        'form': form, 'ai_ready': config.ai_ready, 'active_tab': 'nutrition',
+    })
+
+
+@login_required
+@require_POST
+def meal_photo_analyze(request):
+    """AJAX: recibe una foto suelta y devuelve la estimacion de la IA en JSON."""
+    from django.http import JsonResponse
+    config = SiteConfig.get()
+    if not config.ai_ready:
+        return JsonResponse({'error': 'La IA no esta configurada todavia.'}, status=400)
+    photo = request.FILES.get('photo')
+    if not photo:
+        return JsonResponse({'error': 'Falta la foto.'}, status=400)
+    result = analyze_food_photo(photo.read(), config.openai_api_key)
+    if result is None:
+        return JsonResponse({'error': 'No se pudo analizar la foto. Cargala a mano.'}, status=502)
+    return JsonResponse(result)
+
+
+@login_required
+@require_POST
+def meal_log_delete(request, pk):
+    meal = get_object_or_404(MealLog, pk=pk, user=request.user)
+    meal.delete()
+    messages.success(request, 'Comida eliminada de tu registro.')
+    return redirect('nutrition_home')
 
 
 @login_required

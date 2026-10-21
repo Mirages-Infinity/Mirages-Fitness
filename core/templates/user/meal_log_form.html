@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% block title %}Registrar comida · FitTrack{% endblock %}
+{% block content %}
+
+<header class="px-5 pt-8 pb-4 flex items-center gap-3">
+  <a href="{% url 'nutrition_home' %}" class="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 active:scale-95 transition">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+  </a>
+  <div>
+    <h1 class="text-xl font-black tracking-tight">Registrar comida</h1>
+    <p class="text-xs text-zinc-500">{% if ai_ready %}Sacale una foto y la IA la completa sola{% else %}Cargá los datos a mano{% endif %}</p>
+  </div>
+</header>
+
+{% if form.errors %}
+  <div class="mx-5 mb-4 rounded-xl bg-red-500/10 border border-red-500/30 px-4 py-3 text-sm text-red-400">
+    {% for field in form %}{% for error in field.errors %}<p>{{ field.label }}: {{ error }}</p>{% endfor %}{% endfor %}
+  </div>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data" class="px-5 space-y-4" id="mealForm">
+  {% csrf_token %}
+  <input type="hidden" name="ai_estimated" id="aiEstimatedInput" value="0">
+
+  <div>
+    <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Comida</label>
+    {{ form.meal_type }}
+  </div>
+
+  <div>
+    <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Foto (opcional)</label>
+    {{ form.photo }}
+    {% if ai_ready %}
+      <div id="analyzeStatus" class="hidden mt-2 rounded-xl bg-purple-500/10 border border-purple-500/30 px-3 py-2.5 text-xs text-purple-300 flex items-center gap-2">
+        <svg id="analyzeSpinner" class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 3a9 9 0 019 9"/></svg>
+        <span id="analyzeText">Analizando la foto...</span>
+      </div>
+    {% endif %}
+  </div>
+
+  <div>
+    <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Nombre</label>
+    {{ form.name }}
+  </div>
+
+  <div>
+    <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Calorías</label>
+    {{ form.calories }}
+  </div>
+
+  <div class="grid grid-cols-3 gap-3">
+    <div>
+      <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Proteína (g)</label>
+      {{ form.protein_g }}
+    </div>
+    <div>
+      <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Carbos (g)</label>
+      {{ form.carbs_g }}
+    </div>
+    <div>
+      <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Grasa (g)</label>
+      {{ form.fat_g }}
+    </div>
+  </div>
+
+  <button type="submit"
+          class="w-full rounded-xl bg-lime-400 py-4 font-black text-zinc-950 active:scale-[.98] transition shadow-lg shadow-lime-400/20">
+    ✓ Registrar
+  </button>
+</form>
+
+{% if ai_ready %}
+<script>
+(function () {
+  const photoInput = document.querySelector('input[name="photo"]');
+  const status = document.getElementById('analyzeStatus');
+  const text = document.getElementById('analyzeText');
+  const aiFlag = document.getElementById('aiEstimatedInput');
+  const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+  const nameInput = document.querySelector('#id_name');
+  const calInput = document.querySelector('#id_calories');
+  const proteinInput = document.querySelector('#id_protein_g');
+  const carbsInput = document.querySelector('#id_carbs_g');
+  const fatInput = document.querySelector('#id_fat_g');
+
+  photoInput.addEventListener('change', async () => {
+    const file = photoInput.files[0];
+    if (!file) return;
+    status.classList.remove('hidden');
+    text.textContent = 'Analizando la foto...';
+    const data = new FormData();
+    data.append('photo', file);
+    try {
+      const res = await fetch('{% url "meal_photo_analyze" %}', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrf },
+        body: data,
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        text.textContent = json.error || 'No se pudo analizar. Cargá los datos a mano.';
+        return;
+      }
+      nameInput.value = json.name;
+      calInput.value = json.calories;
+      proteinInput.value = json.protein;
+      carbsInput.value = json.carbs;
+      fatInput.value = json.fat;
+      aiFlag.value = '1';
+      text.textContent = '✨ Listo — revisá y ajustá si hace falta';
+    } catch (e) {
+      text.textContent = 'Sin conexión. Cargá los datos a mano.';
+    }
+  });
+
+  // Si edita algo a mano despues de la IA, deja de marcarse como 100% IA
+  [nameInput, calInput, proteinInput, carbsInput, fatInput].forEach((el) => {
+    el.addEventListener('input', () => { aiFlag.value = '0'; });
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

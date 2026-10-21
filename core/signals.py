@@ -16,4 +16,4 @@ def create_user_extras(sender, instance, created, **kwargs):
             user=instance,
             defaults={'trial_ends': date.today() + timedelta(days=config.trial_days)},
         )
-        Profile.objects.get_or_create(user=instance)
+        Profile.objects.get_or_create(user=instance, defaults={'onboarded': False})

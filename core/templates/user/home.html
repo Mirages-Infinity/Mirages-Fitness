@@ -23,6 +23,14 @@
     </div>
   </div>
 
+  {# ---- Hito de racha ---- #}
+  {% if streak_milestone %}
+    <div class="mt-4 rounded-xl bg-gradient-to-r from-orange-500/15 to-amber-400/15 border border-orange-500/30 px-4 py-3 text-center">
+      <p class="text-sm font-black text-orange-400">🔥 ¡{{ streak_milestone }} días seguidos entrenando!</p>
+      <p class="text-xs text-zinc-400 mt-0.5">Así se construye el hábito. Seguí así 💪</p>
+    </div>
+  {% endif %}
+
   {# ---- Aviso de suscripcion ---- #}
   {% if not user.is_staff and sub %}
     {% if sub.on_trial %}

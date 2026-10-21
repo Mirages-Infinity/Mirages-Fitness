@@ -16,6 +16,7 @@ urlpatterns = [
     ), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('registro/', views.register_view, name='register'),
+    path('bienvenida/', views.onboarding, name='onboarding'),
 
     # Usuario
     path('', views.home, name='home'),
@@ -43,6 +44,12 @@ urlpatterns = [
     path('entrenar/registrar/', views.log_today, name='log_today'),
     path('entrenar/registro-rapido/', views.quick_log, name='quick_log'),
     path('historial/', views.history, name='history'),
+
+    # Nutricion
+    path('nutricion/', views.nutrition_home, name='nutrition_home'),
+    path('nutricion/registrar/', views.meal_log_create, name='meal_log_create'),
+    path('nutricion/analizar/', views.meal_photo_analyze, name='meal_photo_analyze'),
+    path('nutricion/<int:pk>/eliminar/', views.meal_log_delete, name='meal_log_delete'),
     path('progreso/<int:pk>/', views.progress, name='progress'),
 
     # Suscripcion y pagos

@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+{% block title %}Nutrición · FitTrack{% endblock %}
+{% block content %}
+
+<header class="px-5 pt-8 pb-4 flex items-center justify-between">
+  <div>
+    <p class="text-zinc-400 text-sm font-medium">Hoy comiste</p>
+    <h1 class="text-2xl font-black tracking-tight mt-0.5">Nutrición</h1>
+  </div>
+  {% if streak %}
+    <div class="flex items-center gap-1 rounded-full bg-orange-500/10 border border-orange-500/30 px-3 py-1.5">
+      <span class="text-sm">🔥</span>
+      <span class="text-sm font-black text-orange-400">{{ streak }}</span>
+    </div>
+  {% endif %}
+</header>
+
+{% if goal %}
+  {# ---- Anillo de calorias ---- #}
+  <section class="px-5">
+    <div class="rounded-3xl bg-zinc-900 border border-zinc-800 p-5">
+      <div class="flex items-center gap-5">
+        <div class="relative shrink-0">
+          <svg class="w-28 h-28 -rotate-90" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="52" fill="none" stroke="#27272a" stroke-width="10"/>
+            <circle cx="60" cy="60" r="52" fill="none" stroke="url(#calGrad)" stroke-width="10"
+                    stroke-linecap="round" stroke-dasharray="327"
+                    stroke-dashoffset="{{ ring_offset|floatformat:0 }}"
+                    style="transition: stroke-dashoffset .6s ease"/>
+            <defs>
+              <linearGradient id="calGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="{% if over_goal %}#f97316{% else %}#84cc16{% endif %}"/>
+                <stop offset="100%" stop-color="{% if over_goal %}#fb923c{% else %}#bef264{% endif %}"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <div class="absolute inset-0 flex flex-col items-center justify-center">
+            <span class="text-2xl font-black leading-none">{{ pct }}%</span>
+            <span class="text-[10px] text-zinc-500 font-bold uppercase mt-0.5">meta</span>
+          </div>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-bold {% if over_goal %}text-orange-400{% else %}text-lime-400{% endif %}">
+            {{ totals.calories }} / {{ goal }} kcal
+          </p>
+          <p class="text-xs text-zinc-500 mt-0.5">
+            {% if over_goal %}Pasaste la meta por {{ remaining }} kcal{% else %}Te quedan {{ remaining }} kcal{% endif %}
+          </p>
+          <a href="{% url 'meal_log_create' %}"
+             class="mt-3 flex items-center justify-center gap-2 rounded-xl bg-lime-400 py-3 font-black text-zinc-950 text-sm active:scale-[.98] transition shadow-lg shadow-lime-400/20">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+            REGISTRAR COMIDA
+          </a>
+        </div>
+      </div>
+
+      {% if macro_goals %}
+      <div class="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-zinc-800">
+        <div class="text-center">
+          <p class="text-sm font-black text-sky-400">{{ totals.protein|floatformat:0 }}<span class="text-[10px] text-zinc-500">/{{ macro_goals.protein }}g</span></p>
+          <p class="text-[9px] text-zinc-500 font-bold uppercase mt-0.5">Proteína</p>
+          <div class="h-1 rounded-full bg-zinc-800 overflow-hidden mt-1.5">
+            <div class="h-full bg-sky-400" style="width: {% widthratio totals.protein macro_goals.protein 100 %}%"></div>
+          </div>
+        </div>
+        <div class="text-center">
+          <p class="text-sm font-black text-amber-400">{{ totals.carbs|floatformat:0 }}<span class="text-[10px] text-zinc-500">/{{ macro_goals.carbs }}g</span></p>
+          <p class="text-[9px] text-zinc-500 font-bold uppercase mt-0.5">Carbos</p>
+          <div class="h-1 rounded-full bg-zinc-800 overflow-hidden mt-1.5">
+            <div class="h-full bg-amber-400" style="width: {% widthratio totals.carbs macro_goals.carbs 100 %}%"></div>
+          </div>
+        </div>
+        <div class="text-center">
+          <p class="text-sm font-black text-pink-400">{{ totals.fat|floatformat:0 }}<span class="text-[10px] text-zinc-500">/{{ macro_goals.fat }}g</span></p>
+          <p class="text-[9px] text-zinc-500 font-bold uppercase mt-0.5">Grasa</p>
+          <div class="h-1 rounded-full bg-zinc-800 overflow-hidden mt-1.5">
+            <div class="h-full bg-pink-400" style="width: {% widthratio totals.fat macro_goals.fat 100 %}%"></div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+{% else %}
+  <section class="px-5">
+    <div class="rounded-3xl bg-gradient-to-br from-sky-400 to-sky-500 p-6 text-zinc-950">
+      <span class="text-4xl">🍽️</span>
+      <p class="text-xl font-black mt-3 leading-tight">Definí tu meta<br>de calorías</p>
+      <p class="text-sm font-medium opacity-80 mt-2">
+        Con tu meta diaria te armamos el anillo de progreso y repartimos proteína, carbos y grasa automáticamente.
+      </p>
+      <a href="{% url 'profile' %}"
+         class="mt-4 flex items-center justify-center rounded-xl bg-zinc-950 py-3.5 font-black text-sky-400 active:scale-[.98] transition">
+        CONFIGURAR META
+      </a>
+    </div>
+    {% if totals.calories %}
+      <p class="text-center text-sm text-zinc-400 mt-3">Hoy llevás <strong class="text-white">{{ totals.calories }} kcal</strong> registradas.</p>
+    {% endif %}
+    <a href="{% url 'meal_log_create' %}"
+       class="mt-3 flex items-center justify-center gap-2 w-full rounded-xl border-2 border-dashed border-zinc-700 py-3.5 font-bold text-zinc-400 active:scale-[.98] transition">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+      Registrar comida igual
+    </a>
+  </section>
+{% endif %}
+
+{# ---- Comidas de hoy ---- #}
+<section class="px-5 mt-5">
+  <h2 class="text-lg font-bold mb-3">Comidas de hoy</h2>
+  {% if meals %}
+    <div class="space-y-2.5">
+      {% for meal in meals %}
+      <div class="flex items-center gap-3 rounded-2xl bg-zinc-900 border border-zinc-800 p-3">
+        {% if meal.photo %}
+          <img src="{{ meal.photo.url }}" alt="{{ meal.name }}" class="w-14 h-14 rounded-xl object-cover bg-zinc-800 shrink-0">
+        {% else %}
+          <div class="w-14 h-14 rounded-xl bg-zinc-800 flex items-center justify-center text-2xl shrink-0">🍽️</div>
+        {% endif %}
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-1.5">
+            <p class="font-bold text-sm truncate">{{ meal.name|default:meal.get_meal_type_display }}</p>
+            {% if meal.ai_estimated %}<span class="text-[9px] shrink-0">✨</span>{% endif %}
+          </div>
+          <p class="text-xs text-zinc-500 mt-0.5">{{ meal.get_meal_type_display }} · {{ meal.protein_g|floatformat:0 }}P {{ meal.carbs_g|floatformat:0 }}C {{ meal.fat_g|floatformat:0 }}G</p>
+        </div>
+        <p class="text-sm font-black text-lime-400 shrink-0">{{ meal.calories }} kcal</p>
+        <form action="{% url 'meal_log_delete' meal.pk %}" method="post" class="shrink-0">
+          {% csrf_token %}
+          <button type="submit" class="w-7 h-7 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 active:scale-95 transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="rounded-2xl border border-dashed border-zinc-800 p-8 text-center">
+      <span class="text-4xl">📸</span>
+      <p class="font-bold mt-3">Todavía no registraste nada hoy</p>
+      <p class="text-sm text-zinc-500 mt-1">
+        {% if ai_ready %}Sacale una foto a tu comida y la IA calcula las calorías sola.{% else %}Registrá tu primera comida del día.{% endif %}
+      </p>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

@@ -257,6 +257,12 @@ class Profile(models.Model):
     bench_1rm = models.DecimalField('1RM Press de banca (kg)', max_digits=6, decimal_places=1, null=True, blank=True)
     squat_1rm = models.DecimalField('1RM Sentadilla (kg)', max_digits=6, decimal_places=1, null=True, blank=True)
     deadlift_1rm = models.DecimalField('1RM Peso muerto (kg)', max_digits=6, decimal_places=1, null=True, blank=True)
+    # Nutricion (opcional)
+    calorie_goal = models.PositiveIntegerField('Meta de calorias diarias', null=True, blank=True)
+    # default=True: las cuentas que ya existian al agregar este campo no
+    # deben ver la bienvenida de golpe. Solo las nuevas (ver signals.py)
+    # arrancan en False para mostrarsela una vez.
+    onboarded = models.BooleanField('Vio la bienvenida', default=True)
 
     class Meta:
         verbose_name = 'Perfil'
@@ -264,6 +270,18 @@ class Profile(models.Model):
 
     def __str__(self):
         return f'{self.user.username} ({self.rut})'
+
+    @property
+    def macro_goals(self):
+        """Reparto estandar 30% proteina / 40% carbos / 30% grasa a partir
+        de la meta de calorias, para no pedirle 4 numeros al usuario."""
+        if not self.calorie_goal:
+            return None
+        return {
+            'protein': round(self.calorie_goal * 0.30 / 4),
+            'carbs': round(self.calorie_goal * 0.40 / 4),
+            'fat': round(self.calorie_goal * 0.30 / 9),
+        }
 
 
 class SiteConfig(models.Model):
@@ -296,6 +314,10 @@ class SiteConfig(models.Model):
         help_text='Se obtiene en Mercado Pago > Tus integraciones > Credenciales',
     )
     mp_public_key = models.CharField('Public Key de Mercado Pago', max_length=255, blank=True)
+    openai_api_key = models.CharField(
+        'API Key de OpenAI', max_length=255, blank=True,
+        help_text='Para analizar fotos de comida (nutricion). Se obtiene en platform.openai.com > API keys.',
+    )
 
     class Meta:
         verbose_name = 'Configuracion'
@@ -343,6 +365,10 @@ class SiteConfig(models.Model):
     def payments_ready(self):
         has_price = self.monthly_price > 0 or self.quarterly_price > 0 or self.annual_price > 0
         return bool(self.mp_access_token) and has_price
+
+    @property
+    def ai_ready(self):
+        return bool(self.openai_api_key)
 
 
 class Subscription(models.Model):
@@ -419,3 +445,33 @@ class Payment(models.Model):
 
     def __str__(self):
         return f'{self.user.username} - {self.amount} {self.currency} - {self.get_status_display()}'
+
+
+class MealLog(models.Model):
+    """Comida registrada por el usuario, a mano o estimada con IA desde una foto."""
+    MEALS = [
+        ('breakfast', 'Desayuno'),
+        ('lunch', 'Almuerzo'),
+        ('dinner', 'Cena'),
+        ('snack', 'Snack'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='meal_logs')
+    date = models.DateField('Fecha', default=date.today)
+    meal_type = models.CharField('Comida', max_length=10, choices=MEALS, default='snack')
+    photo = models.ImageField('Foto', upload_to='meals/', blank=True, null=True)
+    name = models.CharField('Nombre', max_length=150, blank=True)
+    calories = models.PositiveIntegerField('Calorias', default=0)
+    protein_g = models.DecimalField('Proteina (g)', max_digits=6, decimal_places=1, default=0)
+    carbs_g = models.DecimalField('Carbohidratos (g)', max_digits=6, decimal_places=1, default=0)
+    fat_g = models.DecimalField('Grasa (g)', max_digits=6, decimal_places=1, default=0)
+    ai_estimated = models.BooleanField('Estimado por IA', default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Comida registrada'
+        verbose_name_plural = 'Comidas registradas'
+        ordering = ['-date', '-created_at']
+
+    def __str__(self):
+        return f'{self.user.username} - {self.date} - {self.name or self.get_meal_type_display()}'

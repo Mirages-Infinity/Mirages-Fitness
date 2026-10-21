@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% block title %}Bienvenido · FitTrack{% endblock %}
+{% block content %}
+
+<div class="flex flex-col h-dvh px-6">
+  <div class="flex items-center justify-between pt-6 shrink-0">
+    <div class="flex gap-1.5" id="dots">
+      <span class="dot h-1.5 w-6 rounded-full bg-lime-400 transition-all"></span>
+      <span class="dot h-1.5 w-1.5 rounded-full bg-zinc-800 transition-all"></span>
+      <span class="dot h-1.5 w-1.5 rounded-full bg-zinc-800 transition-all"></span>
+      <span class="dot h-1.5 w-1.5 rounded-full bg-zinc-800 transition-all"></span>
+    </div>
+    <button type="button" id="skipBtn" class="text-sm font-bold text-zinc-500">Omitir</button>
+  </div>
+
+  <div class="flex-1 min-h-0 relative">
+    <div class="slide absolute inset-0 flex flex-col items-center justify-center text-center">
+      <span class="text-7xl">🏋️</span>
+      <h1 class="text-3xl font-black mt-6 leading-tight">¡Bienvenido a<br>FitTrack!</h1>
+      <p class="text-base text-zinc-400 mt-3 max-w-xs">Tu entrenamiento y tu nutrición, bajo control, en un solo lugar.</p>
+    </div>
+    <div class="slide hidden absolute inset-0 flex flex-col items-center justify-center text-center">
+      <span class="text-7xl">✨</span>
+      <h1 class="text-3xl font-black mt-6 leading-tight">Armá tu rutina<br>en 10 segundos</h1>
+      <p class="text-base text-zinc-400 mt-3 max-w-xs">Elegí tu objetivo y nivel, y te armamos el plan semanal completo. O armala vos del catálogo, como prefieras.</p>
+    </div>
+    <div class="slide hidden absolute inset-0 flex flex-col items-center justify-center text-center">
+      <span class="text-7xl">⏱️</span>
+      <h1 class="text-3xl font-black mt-6 leading-tight">Entrená guiado,<br>paso a paso</h1>
+      <p class="text-base text-zinc-400 mt-3 max-w-xs">Un ejercicio a pantalla completa por vez, con video, temporizador de descanso y alarma cuando toca seguir.</p>
+    </div>
+    <div class="slide hidden absolute inset-0 flex flex-col items-center justify-center text-center">
+      <span class="text-7xl">📸</span>
+      <h1 class="text-3xl font-black mt-6 leading-tight">Registrá tu<br>nutrición con foto</h1>
+      <p class="text-base text-zinc-400 mt-3 max-w-xs">Sacale una foto a tu comida y la IA calcula las calorías sola. Así de fácil.</p>
+    </div>
+  </div>
+
+  <form method="post" class="pb-8 shrink-0">
+    {% csrf_token %}
+    <button type="button" id="nextBtn"
+            class="w-full rounded-xl bg-lime-400 py-4 font-black text-zinc-950 active:scale-[.98] transition shadow-lg shadow-lime-400/20">
+      Siguiente
+    </button>
+    <button type="submit" id="startBtn" class="hidden w-full rounded-xl bg-lime-400 py-4 font-black text-zinc-950 active:scale-[.98] transition shadow-lg shadow-lime-400/20">
+      ¡EMPEZAR! 🚀
+    </button>
+  </form>
+</div>
+
+<script>
+(function () {
+  const slides = [...document.querySelectorAll('.slide')];
+  const dots = [...document.querySelectorAll('.dot')];
+  const nextBtn = document.getElementById('nextBtn');
+  const startBtn = document.getElementById('startBtn');
+  const skipBtn = document.getElementById('skipBtn');
+  let idx = 0;
+
+  function show(i) {
+    idx = i;
+    slides.forEach((s, j) => s.classList.toggle('hidden', j !== i));
+    dots.forEach((d, j) => {
+      d.classList.toggle('w-6', j === i);
+      d.classList.toggle('bg-lime-400', j === i);
+      d.classList.toggle('w-1.5', j !== i);
+      d.classList.toggle('bg-zinc-800', j !== i);
+    });
+    const last = i === slides.length - 1;
+    nextBtn.classList.toggle('hidden', last);
+    startBtn.classList.toggle('hidden', !last);
+    skipBtn.classList.toggle('invisible', last);
+  }
+
+  nextBtn.addEventListener('click', () => { if (idx < slides.length - 1) show(idx + 1); });
+  skipBtn.addEventListener('click', () => { document.getElementById('startBtn').closest('form').submit(); });
+  show(0);
+})();
+</script>
+{% endblock %}

@@ -4,7 +4,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 
-from .models import Category, Exercise, Profile, RoutineItem, SiteConfig
+from .models import Category, Exercise, MealLog, Profile, RoutineItem, SiteConfig
 from .validators import normalize_rut
 
 
@@ -117,7 +117,7 @@ class SiteConfigForm(forms.ModelForm):
         model = SiteConfig
         fields = [
             'monthly_price', 'quarterly_price', 'annual_price', 'currency',
-            'trial_days', 'mp_access_token', 'mp_public_key',
+            'trial_days', 'mp_access_token', 'mp_public_key', 'openai_api_key',
         ]
         widgets = {
             'monthly_price': forms.NumberInput(attrs={
@@ -139,6 +139,10 @@ class SiteConfigForm(forms.ModelForm):
             }),
             'mp_public_key': forms.TextInput(attrs={
                 'class': INPUT_CLASS, 'placeholder': 'APP_USR-...',
+                'autocomplete': 'off',
+            }),
+            'openai_api_key': forms.TextInput(attrs={
+                'class': INPUT_CLASS, 'placeholder': 'sk-...',
                 'autocomplete': 'off',
             }),
         }
@@ -294,7 +298,7 @@ class ProfileForm(forms.ModelForm):
         model = Profile
         fields = [
             'goal', 'level', 'days_per_week', 'default_rest', 'unit',
-            'bench_1rm', 'squat_1rm', 'deadlift_1rm',
+            'bench_1rm', 'squat_1rm', 'deadlift_1rm', 'calorie_goal',
         ]
         widgets = {
             'goal': forms.Select(attrs={'class': INPUT_CLASS}),
@@ -314,5 +318,40 @@ class ProfileForm(forms.ModelForm):
             'deadlift_1rm': forms.NumberInput(attrs={
                 'class': INPUT_CLASS, 'step': '0.5', 'min': '0', 'inputmode': 'decimal',
                 'placeholder': 'Ej: 120',
+            }),
+            'calorie_goal': forms.NumberInput(attrs={
+                'class': INPUT_CLASS, 'min': '0', 'inputmode': 'numeric',
+                'placeholder': 'Ej: 2200',
+            }),
+        }
+
+
+class MealLogForm(forms.ModelForm):
+    """Registro de una comida, a mano o pre-cargado por la IA desde una foto."""
+    class Meta:
+        model = MealLog
+        fields = ['meal_type', 'photo', 'name', 'calories', 'protein_g', 'carbs_g', 'fat_g']
+        widgets = {
+            'meal_type': forms.Select(attrs={'class': INPUT_CLASS}),
+            'photo': forms.ClearableFileInput(attrs={
+                'class': 'w-full text-sm text-zinc-400 file:mr-3 file:rounded-lg '
+                         'file:border-0 file:bg-lime-400 file:px-4 file:py-2 '
+                         'file:text-sm file:font-semibold file:text-zinc-950',
+                'accept': 'image/*', 'capture': 'environment',
+            }),
+            'name': forms.TextInput(attrs={
+                'class': INPUT_CLASS, 'placeholder': 'Ej: Pollo con arroz',
+            }),
+            'calories': forms.NumberInput(attrs={
+                'class': INPUT_CLASS, 'min': '0', 'inputmode': 'numeric',
+            }),
+            'protein_g': forms.NumberInput(attrs={
+                'class': INPUT_CLASS, 'step': '0.1', 'min': '0', 'inputmode': 'decimal',
+            }),
+            'carbs_g': forms.NumberInput(attrs={
+                'class': INPUT_CLASS, 'step': '0.1', 'min': '0', 'inputmode': 'decimal',
+            }),
+            'fat_g': forms.NumberInput(attrs={
+                'class': INPUT_CLASS, 'step': '0.1', 'min': '0', 'inputmode': 'decimal',
             }),
         }
