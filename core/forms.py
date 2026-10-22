@@ -345,10 +345,9 @@ class MealLogForm(forms.ModelForm):
         widgets = {
             'meal_type': forms.Select(attrs={'class': INPUT_CLASS}),
             'photo': forms.ClearableFileInput(attrs={
-                'class': 'w-full text-sm text-zinc-400 file:mr-3 file:rounded-lg '
-                         'file:border-0 file:bg-lime-400 file:px-4 file:py-2 '
-                         'file:text-sm file:font-semibold file:text-zinc-950',
-                'accept': 'image/*', 'capture': 'environment',
+                # Oculto: se dispara con el boton "Subir foto" (label[for]) o
+                # con la camara en vivo, que le carga el archivo por JS.
+                'class': 'hidden', 'accept': 'image/*', 'capture': 'environment',
             }),
             'name': forms.TextInput(attrs={
                 'class': INPUT_CLASS, 'placeholder': 'Ej: Pollo con arroz',
