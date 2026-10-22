@@ -868,7 +868,8 @@ def meal_photo_analyze(request):
     photo = request.FILES.get('photo')
     if not photo:
         return JsonResponse({'error': 'Falta la foto.'}, status=400)
-    result = analyze_food_photo(photo.read(), config.openai_api_key)
+    extra_context = request.POST.get('extra_context', '').strip() or None
+    result = analyze_food_photo(photo.read(), config.openai_api_key, extra_context=extra_context)
     if result is None:
         return JsonResponse({'error': 'No se pudo analizar la foto. Cargala a mano.'}, status=502)
     return JsonResponse(result)

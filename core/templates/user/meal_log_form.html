@@ -35,6 +35,18 @@
         <svg id="analyzeSpinner" class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 3a9 9 0 019 9"/></svg>
         <span id="analyzeText">Analizando la foto...</span>
       </div>
+      <div id="clarifyBlock" class="hidden mt-2 rounded-xl bg-amber-500/10 border border-amber-500/30 px-3 py-3">
+        <p class="text-[10px] font-bold uppercase tracking-wider text-amber-400">La IA no está segura</p>
+        <p id="clarifyQuestion" class="text-sm font-bold text-amber-200 mt-0.5"></p>
+        <input type="text" id="clarifyAnswer" placeholder="Tu respuesta"
+               class="w-full rounded-xl bg-zinc-900 border border-zinc-700 px-4 py-2.5 mt-2
+                      text-white placeholder-zinc-500 focus:outline-none focus:ring-2
+                      focus:ring-amber-400 focus:border-transparent text-sm">
+        <button type="button" id="clarifyBtn"
+                class="w-full rounded-lg bg-amber-400 py-2.5 mt-2 font-black text-zinc-950 text-sm active:scale-[.98] transition">
+          Actualizar cálculo
+        </button>
+      </div>
     {% endif %}
   </div>
 
@@ -78,19 +90,26 @@
   const aiFlag = document.getElementById('aiEstimatedInput');
   const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
+  const clarifyBlock = document.getElementById('clarifyBlock');
+  const clarifyQuestion = document.getElementById('clarifyQuestion');
+  const clarifyAnswer = document.getElementById('clarifyAnswer');
+  const clarifyBtn = document.getElementById('clarifyBtn');
+
   const nameInput = document.querySelector('#id_name');
   const calInput = document.querySelector('#id_calories');
   const proteinInput = document.querySelector('#id_protein_g');
   const carbsInput = document.querySelector('#id_carbs_g');
   const fatInput = document.querySelector('#id_fat_g');
 
-  photoInput.addEventListener('change', async () => {
+  async function runAnalysis(extraContext) {
     const file = photoInput.files[0];
     if (!file) return;
+    clarifyBlock.classList.add('hidden');
     status.classList.remove('hidden');
-    text.textContent = 'Analizando la foto...';
+    text.textContent = extraContext ? 'Recalculando...' : 'Analizando la foto...';
     const data = new FormData();
     data.append('photo', file);
+    if (extraContext) data.append('extra_context', extraContext);
     try {
       const res = await fetch('{% url "meal_photo_analyze" %}', {
         method: 'POST',
@@ -108,15 +127,25 @@
       carbsInput.value = json.carbs;
       fatInput.value = json.fat;
       aiFlag.value = '1';
-      text.textContent = '✨ Listo — revisá y ajustá si hace falta';
+      if (!json.complete && json.question) {
+        text.textContent = '✨ Estimación preliminar — completá el dato de abajo';
+        clarifyQuestion.textContent = json.question;
+        clarifyAnswer.value = '';
+        clarifyBlock.classList.remove('hidden');
+      } else {
+        text.textContent = '✨ Listo — revisá y ajustá si hace falta';
+      }
     } catch (e) {
       text.textContent = 'Sin conexión. Cargá los datos a mano.';
     }
-  });
+  }
+
+  photoInput.addEventListener('change', () => runAnalysis(null));
+  clarifyBtn.addEventListener('click', () => runAnalysis(clarifyAnswer.value.trim()));
 
   // Si edita algo a mano despues de la IA, deja de marcarse como 100% IA
   [nameInput, calInput, proteinInput, carbsInput, fatInput].forEach((el) => {
-    el.addEventListener('input', () => { aiFlag.value = '0'; });
+    el.addEventListener('input', () => { aiFlag.value = '0'; clarifyBlock.classList.add('hidden'); });
   });
 })();
 </script>
